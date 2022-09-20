@@ -120,6 +120,7 @@ class MainActivity : AppCompatActivity() {
                         binding.imagePreview.setImageURI(uri)
                         bitmap = binding.imagePreview.drawable.toBitmap()
                         Log.d("bitmapTest", "Width : ${bitmap!!.width.toString()} \tHeight : ${bitmap!!.height.toString()}")
+                        Log.d("bitmapTest", "Pixel 1 : ${String.format("%x", bitmap!!.getPixel(0,0))}")
 
                     }
                 }

@@ -3,6 +3,11 @@
   <component name="DesignSurface">
     <option name="filePathToZoomLevelMap">
       <map>
+        <entry key="..\:/Users/82109/AndroidStudioProjects/MicroNeedleGlucose/app/src/main/res/drawable/buttonbackground.xml" value="0.2985" />
+        <entry key="..\:/Users/82109/AndroidStudioProjects/MicroNeedleGlucose/app/src/main/res/drawable/imagebackground.xml" value="0.2985" />
+        <entry key="..\:/Users/82109/AndroidStudioProjects/MicroNeedleGlucose/app/src/main/res/drawable/seekbar_progress.xml" value="0.2985" />
+        <entry key="..\:/Users/82109/AndroidStudioProjects/MicroNeedleGlucose/app/src/main/res/drawable/seekbar_thumb.xml" value="0.2985" />
+        <entry key="..\:/Users/82109/AndroidStudioProjects/MicroNeedleGlucose/app/src/main/res/layout/activity_main.xml" value="0.34375" />
         <entry key="..\:/Users/insik/AndroidStudioProjects/MicroNeedleGlucose/app/src/main/res/layout/activity_main.xml" value="0.34791666666666665" />
       </map>
     </option>
