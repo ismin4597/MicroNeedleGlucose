@@ -4,20 +4,23 @@ import android.annotation.SuppressLint
 import android.content.ContentValues
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.graphics.Bitmap
+import android.graphics.drawable.BitmapDrawable
 import android.icu.text.SimpleDateFormat
 import android.net.Uri
 import android.os.Build
-import androidx.appcompat.app.AppCompatActivity
 import android.os.Bundle
 import android.provider.MediaStore
 import android.util.Log
 import android.view.View
-import android.widget.ImageButton
 import android.widget.Toast
 import androidx.annotation.RequiresApi
+import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
+import androidx.core.graphics.drawable.toBitmap
 import com.example.microneedleglucose.databinding.ActivityMainBinding
-import java.util.jar.Manifest
+import java.io.ByteArrayOutputStream
+
 
 val PERMISSION_CAMERA = 1000
 val REQUEST_CAMERA = 2000
@@ -25,6 +28,8 @@ class MainActivity : AppCompatActivity() {
     private var mBinding : ActivityMainBinding? = null
     private val binding get() = mBinding!!
     private var realUri : Uri? = null
+    private var drawable : BitmapDrawable? = null
+    private var bitmap : Bitmap? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -34,6 +39,7 @@ class MainActivity : AppCompatActivity() {
         binding.buttonCamera.setOnClickListener(View.OnClickListener {
             requestPermissions(arrayOf(android.Manifest.permission.CAMERA), PERMISSION_CAMERA)
         })
+
     }
 
     fun requirePermissions(permissions : Array<String>, requestCode : Int){
@@ -82,7 +88,7 @@ class MainActivity : AppCompatActivity() {
     @RequiresApi(Build.VERSION_CODES.N)
     private fun openCamera() {
         val intent  = Intent(MediaStore.ACTION_IMAGE_CAPTURE)
-        createImageUri(newFileName(), "image/jpg")?.let {uri ->
+        createImageUri(newFileName(), "image/bmp")?.let {uri ->
             realUri = uri
             intent.putExtra(MediaStore.EXTRA_OUTPUT, realUri)
             startActivityForResult(intent, REQUEST_CAMERA)
@@ -94,7 +100,7 @@ class MainActivity : AppCompatActivity() {
     private fun newFileName() : String {
         val sdf = SimpleDateFormat("yyyyMMdd_HHmmss")
         val filename = sdf.format(System.currentTimeMillis())
-        return "$filename.jpg"
+        return "$filename.bmp"
     }
 
     private fun createImageUri(filename : String, mimeType : String): Uri?{
@@ -112,6 +118,9 @@ class MainActivity : AppCompatActivity() {
                 REQUEST_CAMERA->{
                     realUri?.let{ uri ->
                         binding.imagePreview.setImageURI(uri)
+                        bitmap = binding.imagePreview.drawable.toBitmap()
+                        Log.d("bitmapTest", "Width : ${bitmap!!.width.toString()} \tHeight : ${bitmap!!.height.toString()}")
+
                     }
                 }
             }
