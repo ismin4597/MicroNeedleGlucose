@@ -61,10 +61,12 @@ class MainActivity : AppCompatActivity() {
     private var drawable : BitmapDrawable? = null
     private var bitmap : Bitmap? = null
     private var bitmapBlue : Bitmap? = null
+    private var bitmapGreen : Bitmap? = null
     private var histogramBluePixel = MutableList<Int>(256) { _ -> 0 }
+    private var histogramGreenPixel = MutableList<Int>(256){_ -> 0 }
     private var isBlueFiltered = false
-    private lateinit var lineChart: LineChart
-    private val chartData = ArrayList<ChartData>()
+    lateinit var histogramChart : LineChart
+//    private lateinit var lineChart: LineChart
 
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -91,8 +93,9 @@ class MainActivity : AppCompatActivity() {
 //        ActivityResultContracts.StartActivityForResult()
             ActivityResultContracts.GetContent()
         ) {uri ->
-            binding.imagePreview.setImageURI(uri)
-            bitmap = binding.imagePreview.drawable.toBitmap()
+            startCroppy(uri)
+//            binding.imagePreview.setImageURI(uri)
+//            bitmap = binding.imagePreview.drawable.toBitmap()
         }
         requirePermissions(arrayOf(android.Manifest.permission.CAMERA), PERMISSION_CAMERA)
         binding.buttonCamera.setOnClickListener(View.OnClickListener {
@@ -103,7 +106,8 @@ class MainActivity : AppCompatActivity() {
         binding.buttonLoad.setOnClickListener(View.OnClickListener {
             getContent.launch("image/*")
         })
-        binding.buttonBlueFilter.setOnClickListener(View.OnClickListener {
+
+        binding.imagePreview.setOnClickListener(View.OnClickListener {
             if(bitmapBlue != null){
                 when(isBlueFiltered){
                     true -> {
@@ -117,6 +121,8 @@ class MainActivity : AppCompatActivity() {
                 }
             }
         })
+        histogramChart = binding.histogramChart
+        chartInit(histogramChart)
 
         binding.indicatorSeekbar.isClickable = false
 
@@ -244,8 +250,13 @@ class MainActivity : AppCompatActivity() {
                     cropUri?.let{ uri ->
                         binding.imagePreview.setImageURI(uri)
                         bitmap = binding.imagePreview.drawable.toBitmap()
+//                        bitmapBlue = blueFilter(bitmap!!)
                         bitmapBlue = blueFilter(bitmap!!)
-                        histogramBluePixel = getBlueHistogram(bitmapBlue!!)
+                        bitmapGreen = greenFilter(bitmap!!)
+                        updateHistogram(bitmap!!)
+                        clearChart(histogramChart)
+                        drawHistogram(histogramChart, HISTOGRAM_BLUE_CHANNEL, histogramBluePixel)
+                        drawHistogram(histogramChart, HISTOGRAM_GREEN_CHANNEL, histogramGreenPixel)
                     }
                 }
             }
@@ -265,18 +276,51 @@ class MainActivity : AppCompatActivity() {
         return outputBitmap
     }
 
-    private fun getBlueHistogram(inputBitmap: Bitmap) :MutableList<Int> {
-        val histogramBlue = MutableList<Int>(256) { _ -> 0 }
-        var tmp : Int = 0
+    private fun greenFilter(inputBitmap: Bitmap) : Bitmap {
+        var outputBitmap =
+            createBitmap(inputBitmap.width, inputBitmap.height, Bitmap.Config.ARGB_8888)
         CoroutineScope(Dispatchers.Default).launch {
             for (i in 0 until inputBitmap.height) {
                 for (j in 0 until inputBitmap.width) {
-                    tmp = 0x000000FF.toInt() and inputBitmap.getPixel(j, i).toInt()
-                    histogramBlue[tmp]++
+                    val pixel = inputBitmap.getPixel(j,i).toInt()
+                    val green = pixel and 0xFF00FF00.toInt()
+                    outputBitmap[j, i] = green
                 }
             }
         }
-        return histogramBlue
+        return outputBitmap
+    }
+
+    private fun updateHistogram(inputBitmap: Bitmap) {
+        var tmp1 : Int = 0
+        var tmp2 : Int = 0
+        for(i in 0 until histogramBluePixel.size){
+            histogramBluePixel[i] = 0
+            histogramGreenPixel[i] = 0
+        }
+        CoroutineScope(Dispatchers.Default).launch {
+            for (i in 0 until inputBitmap.height) {
+                for (j in 0 until inputBitmap.width) {
+                    val pixel = inputBitmap.getPixel(j, i).toInt()
+                    tmp1 = 0x000000FF.toInt() and pixel
+                    tmp2 = (0x0000FF00.toInt() and pixel) shr 8
+                    histogramBluePixel[tmp1]++
+                    histogramGreenPixel[tmp2]++
+                }
+            }
+        }
+    }
+    private fun clearChart(chart : LineChart) {
+        chart.fitScreen()
+        chart.data?.clearValues()
+        chart.notifyDataSetChanged()
+        chart.clear()
+        chart.invalidate()
+    }
+    private fun drawHistogram(chart : LineChart, channel: Int, inputList : MutableList<Int>){
+        for(element in inputList){
+            addEntry(chart, channel, element)
+        }
     }
 
     private fun chartInit(chart : LineChart){
@@ -330,41 +374,48 @@ class MainActivity : AppCompatActivity() {
         chart.invalidate()
     }
 
-    fun addEntry(num : Int) {
-        var data = lineChart.data
+    fun addEntry(chart : LineChart, channel: Int, num : Int) {
+        var data = chart.data
         if (data == null) {
             data = LineData()
-            lineChart.data = data
+            chart.data = data
         }
-        var set = data.getDataSetByIndex(0)
+        var set = data.getDataSetByIndex(channel)
 //        var set = data.getDataSetByIndex(channel)
         if (set == null) {
             //set = createSet(channel)
-            set = createSet()
+            set = createSet(channel)
             data.addDataSet(set)
         }
 
-        data.addEntry(Entry(set.entryCount.toFloat(), num.toFloat()), 0)
+        data.addEntry(Entry(set.entryCount.toFloat(), num.toFloat()), channel)
         data.notifyDataChanged()
 
         // let the chart know it's data has changed
 
-        lineChart.notifyDataSetChanged()
-
-        lineChart.setVisibleXRangeMaximum(300f)
-        lineChart.setVisibleXRange(0f,299f)
+        chart.notifyDataSetChanged()
+        chart.setVisibleXRangeMaximum(data.entryCount.toFloat())
+        chart.setVisibleXRange(0f,data.entryCount.toFloat())
         // this automatically refreshes the chartArray[channel] (calls invalidate())
-        lineChart.moveViewTo(data.entryCount.toFloat(), 50f, YAxis.AxisDependency.LEFT)
+        chart.moveViewTo(data.entryCount.toFloat(), 50f, YAxis.AxisDependency.LEFT)
 
 
     }
 
-    private fun createSet(): LineDataSet {
-        val set = LineDataSet(null, "")
+    private fun createSet(channel : Int): LineDataSet {
+        val set = LineDataSet(null, "CH${channel}")
         set.lineWidth = 2f
         set.setDrawValues(false)
         set.valueTextColor = Color.BLACK
-        set.color = Color.rgb(0xAE, 0x0B, 0xB0)
+        if(channel == HISTOGRAM_BLUE_CHANNEL){
+            set.color = Color.rgb(0x00,0x00,0xEE)
+        } else {
+            set.color = Color.rgb(0x00,0xEE,0x00)
+        }
+//        when(channel) {
+//            HISTOGRAM_BLUE_CHANNEL -> set.color = Color.rgb(0x00,0x00,0xEE)
+//            HISTOGRAM_GREEN_CHANNEL -> set.color = Color.rgb(0x00, 0xEE, 0x00)
+//        }
 
         set.mode = LineDataSet.Mode.LINEAR
         set.setDrawCircles(false)
@@ -373,5 +424,7 @@ class MainActivity : AppCompatActivity() {
     }
     companion object {
         private const val RC_CROP_IMAGE = 1001
+        private const val HISTOGRAM_BLUE_CHANNEL = 0
+        private const val HISTOGRAM_GREEN_CHANNEL = 1
     }
 }

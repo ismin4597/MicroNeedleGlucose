@@ -4,11 +4,11 @@
     android:useLevel="false">
     <!-- 배경 -->
     <solid
-        android:color="#000000"/>
+        android:color="@color/main_deepblue"/>
     <!-- 테두리 -->
-    <stroke
-        android:width="2dp"
-        android:color="#000000" />
+
+    <corners
+        android:radius="2dp"/>
     <!-- 크기 -->
     <size
         android:width="6dp"
