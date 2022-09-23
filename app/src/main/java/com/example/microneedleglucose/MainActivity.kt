@@ -6,6 +6,7 @@ import android.content.ContentValues
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.graphics.Bitmap
+import android.graphics.Color
 import android.graphics.Color.blue
 import android.graphics.drawable.BitmapDrawable
 import android.icu.text.SimpleDateFormat
@@ -28,6 +29,13 @@ import androidx.core.graphics.drawable.toBitmap
 import androidx.core.graphics.set
 import androidx.core.net.toUri
 import com.example.microneedleglucose.databinding.ActivityMainBinding
+import com.github.mikephil.charting.charts.LineChart
+import com.github.mikephil.charting.components.XAxis
+import com.github.mikephil.charting.components.YAxis
+import com.github.mikephil.charting.data.ChartData
+import com.github.mikephil.charting.data.Entry
+import com.github.mikephil.charting.data.LineData
+import com.github.mikephil.charting.data.LineDataSet
 import com.lyrebirdstudio.croppylib.Croppy
 import com.lyrebirdstudio.croppylib.main.CropRequest
 import com.lyrebirdstudio.croppylib.main.CroppyActivity
@@ -53,6 +61,10 @@ class MainActivity : AppCompatActivity() {
     private var drawable : BitmapDrawable? = null
     private var bitmap : Bitmap? = null
     private var bitmapBlue : Bitmap? = null
+    private var histogramBluePixel = MutableList<Int>(256) { _ -> 0 }
+    private var isBlueFiltered = false
+    private lateinit var lineChart: LineChart
+    private val chartData = ArrayList<ChartData>()
 
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -66,10 +78,12 @@ class MainActivity : AppCompatActivity() {
             when(activityResult.resultCode){
                 RESULT_OK -> {
                     val savedUri = activityResult.data?.getParcelableExtra<Uri>("savedUri")
-                    binding.imagePreview.setImageURI(savedUri)
-                    bitmap = binding.imagePreview.drawable.toBitmap()
-                    realUri = savedUri
-
+                    startCroppy(savedUri!!)
+//                    binding.imagePreview.setImageURI(savedUri)
+//                    bitmap = binding.imagePreview.drawable.toBitmap()
+//                    realUri = savedUri
+//                    bitmapBlue = blueFilter(bitmap!!)
+//                    histogramBluePixel = getBlueHistogram(bitmapBlue!!)
                 }
             }
         }
@@ -88,6 +102,20 @@ class MainActivity : AppCompatActivity() {
         })
         binding.buttonLoad.setOnClickListener(View.OnClickListener {
             getContent.launch("image/*")
+        })
+        binding.buttonBlueFilter.setOnClickListener(View.OnClickListener {
+            if(bitmapBlue != null){
+                when(isBlueFiltered){
+                    true -> {
+                        binding.imagePreview.setImageBitmap(bitmap)
+                        isBlueFiltered = false
+                    }
+                    false -> {
+                        binding.imagePreview.setImageBitmap(bitmapBlue)
+                        isBlueFiltered = true
+                    }
+                }
+            }
         })
 
         binding.indicatorSeekbar.isClickable = false
@@ -216,11 +244,8 @@ class MainActivity : AppCompatActivity() {
                     cropUri?.let{ uri ->
                         binding.imagePreview.setImageURI(uri)
                         bitmap = binding.imagePreview.drawable.toBitmap()
-                        Log.d("bitmapTest", "Width : ${bitmap!!.width.toString()} \tHeight : ${bitmap!!.height.toString()}")
-                        Log.d("bitmapTest", "Pixel 1 : ${String.format("%x", bitmap!!.getPixel(0,0))}")
-                        binding.imagePreview.setImageBitmap(blueFilter(bitmap!!))
-                        val histogram = getBlueHistogram(bitmap!!)
-                        Log.d("bitmapTest", "Histogram : " + histogram.toString())
+                        bitmapBlue = blueFilter(bitmap!!)
+                        histogramBluePixel = getBlueHistogram(bitmapBlue!!)
                     }
                 }
             }
@@ -228,9 +253,9 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun blueFilter(inputBitmap : Bitmap) : Bitmap {
+        var outputBitmap =
+            createBitmap(inputBitmap.width, inputBitmap.height, Bitmap.Config.ARGB_8888)
         CoroutineScope(Dispatchers.Default).launch {
-            var outputBitmap =
-                createBitmap(inputBitmap.width, inputBitmap.height, Bitmap.Config.ARGB_8888)
             for (i in 0 until inputBitmap.height) {
                 for (j in 0 until inputBitmap.width) {
                     outputBitmap[j, i] = 0xFF0000FF.toInt() and inputBitmap.getPixel(j, i).toInt()
@@ -243,16 +268,109 @@ class MainActivity : AppCompatActivity() {
     private fun getBlueHistogram(inputBitmap: Bitmap) :MutableList<Int> {
         val histogramBlue = MutableList<Int>(256) { _ -> 0 }
         var tmp : Int = 0
-        for(i in 0 until inputBitmap.height) {
-            for(j in 0 until inputBitmap.width) {
-                tmp = 0x000000FF.toInt() and inputBitmap.getPixel(j,i).toInt()
-                histogramBlue[tmp]++
+        CoroutineScope(Dispatchers.Default).launch {
+            for (i in 0 until inputBitmap.height) {
+                for (j in 0 until inputBitmap.width) {
+                    tmp = 0x000000FF.toInt() and inputBitmap.getPixel(j, i).toInt()
+                    histogramBlue[tmp]++
+                }
             }
         }
         return histogramBlue
     }
 
+    private fun chartInit(chart : LineChart){
+        chart.setDrawGridBackground(false)
+        chart.setBackgroundColor(Color.rgb(0xEF,0xEF,0xEF))
+        chart.setGridBackgroundColor(Color.rgb(0xEF,0xEF,0xEF))
+//
+        chart.getDescription().setEnabled(false)
+//        val des : Description = chart.description
+//        des.setEnabled(true)
+//        des.setText(String.format("Ch %d", channel))
+//        des.setTextSize(15f)
+//        des.setTextColor(Color.BLACK)
 
+
+        chart.setTouchEnabled(true)
+        chart.isDragEnabled = true
+        chart.setScaleEnabled(true)
+        //chart.isAutoScaleMinMaxEnabled = false
+
+        chart.setPinchZoom(true)
+
+        chart.xAxis.setDrawGridLines(true)
+        chart.xAxis.setDrawAxisLine(true)
+
+        val xAxis = chart.xAxis
+        xAxis.isEnabled = true
+        xAxis.setDrawGridLines(false)
+        xAxis.position = XAxis.XAxisPosition.BOTTOM
+//        xAxis.textColor = Color.BLACK
+//        xAxis.textSize = 12f
+//        xAxis.valueFormatter = TimeAxisValueFormat()
+
+
+//        val legend: Legend = chart.legend
+//        legend.isEnabled = true
+//        legend.formSize = 10f
+//        legend.textSize = 12f
+//        legend.textColor = Color.BLACK
+
+        val yAxis : YAxis = chart.axisLeft
+        yAxis.isEnabled = true
+        yAxis.textColor = Color.BLACK
+        yAxis.setDrawGridLines(false)
+//        yAxis.gridColor = Color.BLACK
+//        yAxis.textColor = Color.BLACK
+//        yAxis.textSize = 12f
+
+        val rAxis : YAxis = chart.axisRight
+        rAxis.isEnabled = false
+        chart.invalidate()
+    }
+
+    fun addEntry(num : Int) {
+        var data = lineChart.data
+        if (data == null) {
+            data = LineData()
+            lineChart.data = data
+        }
+        var set = data.getDataSetByIndex(0)
+//        var set = data.getDataSetByIndex(channel)
+        if (set == null) {
+            //set = createSet(channel)
+            set = createSet()
+            data.addDataSet(set)
+        }
+
+        data.addEntry(Entry(set.entryCount.toFloat(), num.toFloat()), 0)
+        data.notifyDataChanged()
+
+        // let the chart know it's data has changed
+
+        lineChart.notifyDataSetChanged()
+
+        lineChart.setVisibleXRangeMaximum(300f)
+        lineChart.setVisibleXRange(0f,299f)
+        // this automatically refreshes the chartArray[channel] (calls invalidate())
+        lineChart.moveViewTo(data.entryCount.toFloat(), 50f, YAxis.AxisDependency.LEFT)
+
+
+    }
+
+    private fun createSet(): LineDataSet {
+        val set = LineDataSet(null, "")
+        set.lineWidth = 2f
+        set.setDrawValues(false)
+        set.valueTextColor = Color.BLACK
+        set.color = Color.rgb(0xAE, 0x0B, 0xB0)
+
+        set.mode = LineDataSet.Mode.LINEAR
+        set.setDrawCircles(false)
+        set.highLightColor = Color.rgb(190, 190, 190)
+        return set
+    }
     companion object {
         private const val RC_CROP_IMAGE = 1001
     }
