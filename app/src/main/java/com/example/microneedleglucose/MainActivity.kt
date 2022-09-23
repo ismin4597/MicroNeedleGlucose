@@ -17,9 +17,12 @@ import android.provider.MediaStore
 import android.util.Log
 import android.view.View
 import android.widget.Toast
+import androidx.activity.result.ActivityResultLauncher
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.annotation.RequiresApi
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
+import androidx.core.app.ActivityCompat.startActivityForResult
 import androidx.core.graphics.createBitmap
 import androidx.core.graphics.drawable.toBitmap
 import androidx.core.graphics.set
@@ -33,6 +36,9 @@ import com.lyrebirdstudio.croppylib.main.StorageType
 import com.lyrebirdstudio.croppylib.util.file.FileCreator
 import com.lyrebirdstudio.croppylib.util.file.FileExtension
 import com.lyrebirdstudio.croppylib.util.file.FileOperationRequest
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 import java.io.ByteArrayOutputStream
 import java.io.File
 
@@ -46,19 +52,42 @@ class MainActivity : AppCompatActivity() {
     private var cropUri : Uri? = null
     private var drawable : BitmapDrawable? = null
     private var bitmap : Bitmap? = null
+    private var bitmapBlue : Bitmap? = null
+
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
         mBinding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
+        val requestForActivityResult : ActivityResultLauncher<Intent> = registerForActivityResult(
+            ActivityResultContracts.StartActivityForResult()
+        ){activityResult ->
+            when(activityResult.resultCode){
+                RESULT_OK -> {
+                    val savedUri = activityResult.data?.getParcelableExtra<Uri>("savedUri")
+                    binding.imagePreview.setImageURI(savedUri)
+                    bitmap = binding.imagePreview.drawable.toBitmap()
+                    realUri = savedUri
+
+                }
+            }
+        }
+        val getContent : ActivityResultLauncher<String> = registerForActivityResult(
+//        ActivityResultContracts.StartActivityForResult()
+            ActivityResultContracts.GetContent()
+        ) {uri ->
+            binding.imagePreview.setImageURI(uri)
+            bitmap = binding.imagePreview.drawable.toBitmap()
+        }
         requirePermissions(arrayOf(android.Manifest.permission.CAMERA), PERMISSION_CAMERA)
         binding.buttonCamera.setOnClickListener(View.OnClickListener {
-//            val cameraPreview = Intent(this@MainActivity, cameraActivity::class.java)
-//            startActivity(cameraPreview)
-            openCamera()
+            val cameraActivity = Intent(this@MainActivity, cameraActivity::class.java)
+            requestForActivityResult.launch(cameraActivity)
+//            openCamera()
         })
         binding.buttonLoad.setOnClickListener(View.OnClickListener {
+            getContent.launch("image/*")
         })
 
         binding.indicatorSeekbar.isClickable = false
@@ -196,18 +225,21 @@ class MainActivity : AppCompatActivity() {
                 }
             }
         }
-
-
     }
+
     private fun blueFilter(inputBitmap : Bitmap) : Bitmap {
-        var outputBitmap = createBitmap(inputBitmap.width, inputBitmap.height, Bitmap.Config.ARGB_8888)
-        for(i in 0 until inputBitmap.height) {
-            for (j in 0 until inputBitmap.width){
-                outputBitmap[j,i] = 0xFF0000FF.toInt() and inputBitmap.getPixel(j,i).toInt()
+        CoroutineScope(Dispatchers.Default).launch {
+            var outputBitmap =
+                createBitmap(inputBitmap.width, inputBitmap.height, Bitmap.Config.ARGB_8888)
+            for (i in 0 until inputBitmap.height) {
+                for (j in 0 until inputBitmap.width) {
+                    outputBitmap[j, i] = 0xFF0000FF.toInt() and inputBitmap.getPixel(j, i).toInt()
+                }
             }
         }
         return outputBitmap
     }
+
     private fun getBlueHistogram(inputBitmap: Bitmap) :MutableList<Int> {
         val histogramBlue = MutableList<Int>(256) { _ -> 0 }
         var tmp : Int = 0

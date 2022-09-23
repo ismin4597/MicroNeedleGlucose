@@ -38,7 +38,7 @@
         android:id="@+id/glucoseTextView"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="Moderate"
+        android:text="90~100mg/dl"
         app:layout_constraintTop_toBottomOf="@id/indicatorSeekbar"
         app:layout_constraintStart_toStartOf="@id/indicatorSeekbar"
         app:layout_constraintEnd_toEndOf="@id/indicatorSeekbar"
@@ -53,7 +53,7 @@
         app:layout_constraintTop_toBottomOf="@id/glucoseTextView"
         app:layout_constraintStart_toStartOf="@id/glucoseTextView"
         app:layout_constraintEnd_toEndOf="@id/glucoseTextView"
-        android:text="test2022/10/10 PM11:59:59"
+        android:text="2022/10/10 PM11:59:59"
         android:fontFamily="@font/godo_m"
         android:textColor="@color/main_deepblue"
         android:textSize="16sp"/>
@@ -125,32 +125,56 @@
 
     <Button
         android:id="@+id/buttonCamera"
-        android:layout_width="wrap_content"
-        android:layout_height="40dp"
-        android:text="Camera"
+        android:layout_width="50dp"
+        android:layout_height="38dp"
         android:textAllCaps="false"
         android:textSize="16sp"
         android:textColor="@color/main_lightyellow"
-        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintEnd_toEndOf="@id/imagePreview"
+        app:layout_constraintStart_toStartOf="@id/imagePreview"
         app:layout_constraintTop_toBottomOf="@id/imagePreview"
+        app:layout_constraintHorizontal_bias="0.1"
         android:layout_marginTop="10dp"
-        android:layout_marginEnd="5dp"
-        android:background="@drawable/buttonbackground"/>
+        android:background="@drawable/cameraicon1"/>
+    <TextView
+        android:layout_width="50dp"
+        android:layout_height="18dp"
+        android:textAllCaps="false"
+        android:text="Capture"
+        android:fontFamily="@font/godo_m"
+        android:textSize="12sp"
+        android:gravity="center"
+        app:layout_constraintStart_toStartOf="@id/buttonCamera"
+        app:layout_constraintEnd_toEndOf="@id/buttonCamera"
+        app:layout_constraintTop_toBottomOf="@id/buttonCamera"
+        android:textColor="@color/main_deepblue"/>
 
     <Button
         android:id="@+id/buttonLoad"
-        android:layout_width="wrap_content"
-        android:layout_height="40dp"
-        android:text="Load"
+        android:layout_width="50dp"
+        android:layout_height="38dp"
         android:textAllCaps="false"
         android:textSize="16sp"
         android:textColor="@color/main_lightyellow"
-        app:layout_constraintEnd_toStartOf="@id/buttonCamera"
+        app:layout_constraintStart_toStartOf="@id/imagePreview"
+        app:layout_constraintEnd_toEndOf="@id/imagePreview"
         app:layout_constraintTop_toBottomOf="@id/imagePreview"
-        android:layout_marginEnd="5dp"
+        app:layout_constraintHorizontal_bias="0.9"
         android:layout_marginTop="10dp"
-        android:background="@drawable/buttonbackground"/>
+        android:background="@drawable/fileloadicon2"/>
 
+    <TextView
+        android:layout_width="50dp"
+        android:layout_height="18dp"
+        android:textAllCaps="false"
+        android:text="Load"
+        android:fontFamily="@font/godo_m"
+        android:textSize="12sp"
+        android:gravity="center"
+        app:layout_constraintStart_toStartOf="@id/buttonLoad"
+        app:layout_constraintEnd_toEndOf="@id/buttonLoad"
+        app:layout_constraintTop_toBottomOf="@id/buttonLoad"
+        android:textColor="@color/main_deepblue"/>
     <ImageView
         android:id="@+id/imagePreview"
         android:layout_width="140dp"

@@ -2,6 +2,7 @@ package com.example.microneedleglucose
 
 import android.Manifest
 import android.content.ContentValues
+import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Build
 import androidx.appcompat.app.AppCompatActivity
@@ -9,10 +10,7 @@ import android.os.Bundle
 import android.provider.MediaStore
 import android.util.Log
 import android.widget.Toast
-import androidx.camera.core.CameraSelector
-import androidx.camera.core.ImageCapture
-import androidx.camera.core.ImageCaptureException
-import androidx.camera.core.Preview
+import androidx.camera.core.*
 import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.camera.video.Recorder
 import androidx.camera.video.Recording
@@ -32,6 +30,10 @@ class cameraActivity : AppCompatActivity() {
 
     private var videoCapture: VideoCapture<Recorder>? = null
     private var recording: Recording? = null
+    private var camera : Camera? = null
+    private var cameraController : CameraControl? = null
+    private var cameraInfo: CameraInfo? = null
+
 
     private lateinit var cameraExecutor: ExecutorService
 
@@ -50,7 +52,12 @@ class cameraActivity : AppCompatActivity() {
 
         // Set up the listeners for take photo and video capture buttons
         viewBinding.imageCaptureButton.setOnClickListener { takePhoto() }
-        viewBinding.videoCaptureButton.setOnClickListener { captureVideo() }
+        viewBinding.torchButton.setOnClickListener{
+            when(cameraInfo?.torchState?.value){
+                TorchState.ON -> cameraController?.enableTorch(false)
+                TorchState.OFF -> cameraController?.enableTorch(true)
+            }
+        }
 
         cameraExecutor = Executors.newSingleThreadExecutor()
     }
@@ -64,6 +71,7 @@ class cameraActivity : AppCompatActivity() {
                 Toast.makeText(this,
                     "Permissions not granted by the user.",
                     Toast.LENGTH_SHORT).show()
+                cameraController?.enableTorch(false)
                 finish()
             }
         }
@@ -72,13 +80,13 @@ class cameraActivity : AppCompatActivity() {
         val imageCapture = imageCapture ?: return
 
         // Create time stamped name and MediaStore entry.
-        val name = SimpleDateFormat(FILENAME_FORMAT, Locale.US)
+        val name = SimpleDateFormat(FILENAME_FORMAT, Locale.KOREA)
             .format(System.currentTimeMillis())
         val contentValues = ContentValues().apply {
             put(MediaStore.MediaColumns.DISPLAY_NAME, name)
             put(MediaStore.MediaColumns.MIME_TYPE, "image/bmp")
             if(Build.VERSION.SDK_INT > Build.VERSION_CODES.P) {
-                put(MediaStore.Images.Media.RELATIVE_PATH, "Pictures/CameraX-Image")
+                put(MediaStore.Images.Media.RELATIVE_PATH, "Pictures/Glucose Monitoring")
             }
         }
 
@@ -102,8 +110,12 @@ class cameraActivity : AppCompatActivity() {
                 override fun
                         onImageSaved(output: ImageCapture.OutputFileResults){
                     val msg = "Photo capture succeeded: ${output.savedUri}"
-                    Toast.makeText(baseContext, msg, Toast.LENGTH_SHORT).show()
-                    Log.d(TAG, msg)
+                    val intent = Intent()
+                    intent.putExtra("savedUri", output.savedUri)
+//                    Toast.makeText(baseContext, msg, Toast.LENGTH_SHORT).show()
+//                    Log.d(TAG, msg)
+                    setResult(RESULT_OK, intent)
+                    finish()
                 }
             }
         )
@@ -128,7 +140,10 @@ class cameraActivity : AppCompatActivity() {
 
             try {
                 cameraProvider.unbindAll()
-                cameraProvider.bindToLifecycle(this, cameraSelector, preview, imageCapture)
+                camera = cameraProvider.bindToLifecycle(this, cameraSelector, preview, imageCapture)
+                cameraController = camera!!.cameraControl
+                cameraInfo = camera!!.cameraInfo
+                cameraController!!.enableTorch(true)
             } catch (e : Exception) {
                 Log.e("Error", "Use case binding failed", e)
             }
