@@ -190,6 +190,21 @@
         android:elevation="3dp"
         />
 
+    <Button
+        android:id="@+id/buttonUpdate"
+        android:layout_width="80dp"
+        android:layout_height="40dp"
+        app:layout_constraintBottom_toTopOf="@id/histogramChart"
+        app:layout_constraintStart_toStartOf="parent"
+        android:layout_marginStart="10dp"
+        android:layout_marginBottom="5dp"
+        android:background="@drawable/buttonbackground"
+        android:textColor="@color/main_background"
+        android:text="Histogram"
+        android:textAllCaps="false"
+        android:elevation="3dp"
+        />
+
     <com.github.mikephil.charting.charts.LineChart
         android:id="@+id/histogramChart"
         android:layout_width="match_parent"
@@ -197,6 +212,7 @@
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintTop_toBottomOf="@id/buttonCamera"
+        android:background="@drawable/chartbackground"
         android:layout_marginStart="10dp"
         android:layout_marginEnd="10dp"
         android:layout_marginTop="30dp"/>

@@ -1,53 +1,44 @@
 package com.example.microneedleglucose
 
 import android.annotation.SuppressLint
-import android.content.ContentResolver
 import android.content.ContentValues
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.graphics.Bitmap
 import android.graphics.Color
-import android.graphics.Color.blue
+import android.graphics.Paint
 import android.graphics.drawable.BitmapDrawable
 import android.icu.text.SimpleDateFormat
 import android.net.Uri
-import android.os.Build
-import android.os.Bundle
-import android.os.Environment
+import android.os.*
 import android.provider.MediaStore
 import android.util.Log
 import android.view.View
 import android.widget.Toast
 import androidx.activity.result.ActivityResultLauncher
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.annotation.RequiresApi
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
-import androidx.core.app.ActivityCompat.startActivityForResult
 import androidx.core.graphics.createBitmap
 import androidx.core.graphics.drawable.toBitmap
 import androidx.core.graphics.set
 import androidx.core.net.toUri
 import com.example.microneedleglucose.databinding.ActivityMainBinding
+import com.github.mikephil.charting.charts.Chart
 import com.github.mikephil.charting.charts.LineChart
 import com.github.mikephil.charting.components.XAxis
 import com.github.mikephil.charting.components.YAxis
-import com.github.mikephil.charting.data.ChartData
 import com.github.mikephil.charting.data.Entry
 import com.github.mikephil.charting.data.LineData
 import com.github.mikephil.charting.data.LineDataSet
 import com.lyrebirdstudio.croppylib.Croppy
 import com.lyrebirdstudio.croppylib.main.CropRequest
-import com.lyrebirdstudio.croppylib.main.CroppyActivity
 import com.lyrebirdstudio.croppylib.main.CroppyTheme
 import com.lyrebirdstudio.croppylib.main.StorageType
 import com.lyrebirdstudio.croppylib.util.file.FileCreator
 import com.lyrebirdstudio.croppylib.util.file.FileExtension
 import com.lyrebirdstudio.croppylib.util.file.FileOperationRequest
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.launch
-import java.io.ByteArrayOutputStream
+import kotlinx.coroutines.*
 import java.io.File
 
 
@@ -63,9 +54,13 @@ class MainActivity : AppCompatActivity() {
     private var bitmapBlue : Bitmap? = null
     private var bitmapGreen : Bitmap? = null
     private var histogramBluePixel = MutableList<Int>(256) { _ -> 0 }
-    private var histogramGreenPixel = MutableList<Int>(256){_ -> 0 }
+    private var histogramGreenPixel = MutableList<Int>(256) { _ -> 0 }
     private var isBlueFiltered = false
     lateinit var histogramChart : LineChart
+    private var isUpdated = false
+
+
+
 //    private lateinit var lineChart: LineChart
 
 
@@ -74,6 +69,13 @@ class MainActivity : AppCompatActivity() {
 
         mBinding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
+        val mHandler = object : Handler(Looper.getMainLooper()) {
+            override fun handleMessage (msg : Message) {
+                clearChart(histogramChart)
+                drawHistogram(histogramChart, HISTOGRAM_BLUE_CHANNEL, histogramBluePixel)
+                drawHistogram(histogramChart, HISTOGRAM_GREEN_CHANNEL, histogramGreenPixel)
+            }
+        }
         val requestForActivityResult : ActivityResultLauncher<Intent> = registerForActivityResult(
             ActivityResultContracts.StartActivityForResult()
         ){activityResult ->
@@ -81,11 +83,6 @@ class MainActivity : AppCompatActivity() {
                 RESULT_OK -> {
                     val savedUri = activityResult.data?.getParcelableExtra<Uri>("savedUri")
                     startCroppy(savedUri!!)
-//                    binding.imagePreview.setImageURI(savedUri)
-//                    bitmap = binding.imagePreview.drawable.toBitmap()
-//                    realUri = savedUri
-//                    bitmapBlue = blueFilter(bitmap!!)
-//                    histogramBluePixel = getBlueHistogram(bitmapBlue!!)
                 }
             }
         }
@@ -121,8 +118,34 @@ class MainActivity : AppCompatActivity() {
                 }
             }
         })
+
+        binding.buttonUpdate.setOnClickListener(View.OnClickListener {
+            val msg : Message = Message()
+
+            CoroutineScope(Dispatchers.Default).launch {
+                val update = async(Dispatchers.Default){
+                    if(bitmap != null)
+                        updateHistogram(bitmap!!)
+                }
+                update.await()
+                mHandler.sendMessage(msg)
+            }
+
+//            CoroutineScope(Dispatchers.Default).launch{
+//                updateHistogram(bitmap!!)
+//            }
+//            clearChart(histogramChart)
+//
+        })
         histogramChart = binding.histogramChart
         chartInit(histogramChart)
+        histogramChart.setNoDataText("")
+        histogramChart.setBackgroundColor(Color.rgb(0xE3,0xE3,0xE3))
+        histogramChart.setDrawGridBackground(false)
+
+        // from: https://github.com/PhilJay/MPAndroidChart/issues/89
+
+        // from: https://github.com/PhilJay/MPAndroidChart/issues/89
 
         binding.indicatorSeekbar.isClickable = false
 
@@ -253,10 +276,10 @@ class MainActivity : AppCompatActivity() {
 //                        bitmapBlue = blueFilter(bitmap!!)
                         bitmapBlue = blueFilter(bitmap!!)
                         bitmapGreen = greenFilter(bitmap!!)
-                        updateHistogram(bitmap!!)
-                        clearChart(histogramChart)
-                        drawHistogram(histogramChart, HISTOGRAM_BLUE_CHANNEL, histogramBluePixel)
-                        drawHistogram(histogramChart, HISTOGRAM_GREEN_CHANNEL, histogramGreenPixel)
+//                        updateHistogram(bitmap!!)
+//                        clearChart(histogramChart)
+//                        drawHistogram(histogramChart, HISTOGRAM_BLUE_CHANNEL, histogramBluePixel)
+//                        drawHistogram(histogramChart, HISTOGRAM_GREEN_CHANNEL, histogramGreenPixel)
                     }
                 }
             }
@@ -294,21 +317,21 @@ class MainActivity : AppCompatActivity() {
     private fun updateHistogram(inputBitmap: Bitmap) {
         var tmp1 : Int = 0
         var tmp2 : Int = 0
-        for(i in 0 until histogramBluePixel.size){
-            histogramBluePixel[i] = 0
-            histogramGreenPixel[i] = 0
-        }
-        CoroutineScope(Dispatchers.Default).launch {
-            for (i in 0 until inputBitmap.height) {
-                for (j in 0 until inputBitmap.width) {
-                    val pixel = inputBitmap.getPixel(j, i).toInt()
-                    tmp1 = 0x000000FF.toInt() and pixel
-                    tmp2 = (0x0000FF00.toInt() and pixel) shr 8
-                    histogramBluePixel[tmp1]++
-                    histogramGreenPixel[tmp2]++
-                }
+        var outputBitmapBlue = MutableList(256){_->0}
+        var outputBitmapGreen = MutableList(256){_->0}
+
+        for (i in 0 until inputBitmap.height) {
+            for (j in 0 until inputBitmap.width) {
+                val pixel = inputBitmap.getPixel(j, i).toInt()
+                tmp1 = (0x000000FF.toInt() and pixel)
+                tmp2 = (0x0000FF00.toInt() and pixel) shr 8
+                outputBitmapBlue[tmp1]++
+                outputBitmapGreen[tmp2]++
             }
         }
+        histogramBluePixel = outputBitmapBlue
+        histogramGreenPixel = outputBitmapGreen
+//        return listOf(outputBitmapGreen, outputBitmapBlue)
     }
     private fun clearChart(chart : LineChart) {
         chart.fitScreen()
@@ -394,8 +417,8 @@ class MainActivity : AppCompatActivity() {
         // let the chart know it's data has changed
 
         chart.notifyDataSetChanged()
-        chart.setVisibleXRangeMaximum(data.entryCount.toFloat())
-        chart.setVisibleXRange(0f,data.entryCount.toFloat())
+        chart.setVisibleXRangeMaximum(256f)
+        chart.setVisibleXRange(0f,255f)
         // this automatically refreshes the chartArray[channel] (calls invalidate())
         chart.moveViewTo(data.entryCount.toFloat(), 50f, YAxis.AxisDependency.LEFT)
 
