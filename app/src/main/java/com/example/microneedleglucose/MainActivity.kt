@@ -40,6 +40,7 @@ import com.lyrebirdstudio.croppylib.util.file.FileExtension
 import com.lyrebirdstudio.croppylib.util.file.FileOperationRequest
 import kotlinx.coroutines.*
 import java.io.File
+import java.util.logging.ErrorManager
 
 
 val PERMISSION_CAMERA = 1000
@@ -53,13 +54,29 @@ class MainActivity : AppCompatActivity() {
     private var bitmap : Bitmap? = null
     private var bitmapBlue : Bitmap? = null
     private var bitmapGreen : Bitmap? = null
+    private var bitmapCustom : Bitmap? = null
     private var histogramBluePixel = MutableList<Int>(256) { _ -> 0 }
     private var histogramGreenPixel = MutableList<Int>(256) { _ -> 0 }
     private var isBlueFiltered = false
-    lateinit var histogramChart : LineChart
+
     private var isUpdated = false
+    private var bluePixelMeanFiltered : Double = 0.0
+    private var bluePixelMeanTotal : Double = 0.0
+    private var greenPixelMeanFiltered : Double = 0.0
+    private var greenPixelMeanTotal : Double = 0.0
+    private var filteredArea : Double = 0.0
 
+    lateinit var histogramChart : LineChart
+    lateinit var glucoseChart : LineChart
 
+    val mHandler = object : Handler(Looper.getMainLooper()) {
+        override fun handleMessage (msg : Message) {
+            clearChart(histogramChart)
+            drawHistogram(histogramChart, HISTOGRAM_BLUE_CHANNEL, histogramBluePixel)
+            drawHistogram(histogramChart, HISTOGRAM_GREEN_CHANNEL, histogramGreenPixel)
+//            binding.meanText.text = String.format("Blue + Green mean : %.1f", bluePixelMean + greenPixelMean)
+        }
+    }
 
 //    private lateinit var lineChart: LineChart
 
@@ -69,13 +86,7 @@ class MainActivity : AppCompatActivity() {
 
         mBinding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
-        val mHandler = object : Handler(Looper.getMainLooper()) {
-            override fun handleMessage (msg : Message) {
-                clearChart(histogramChart)
-                drawHistogram(histogramChart, HISTOGRAM_BLUE_CHANNEL, histogramBluePixel)
-                drawHistogram(histogramChart, HISTOGRAM_GREEN_CHANNEL, histogramGreenPixel)
-            }
-        }
+
         val requestForActivityResult : ActivityResultLauncher<Intent> = registerForActivityResult(
             ActivityResultContracts.StartActivityForResult()
         ){activityResult ->
@@ -104,6 +115,7 @@ class MainActivity : AppCompatActivity() {
             getContent.launch("image/*")
         })
 
+        binding.imagePreview.clipToOutline = true
         binding.imagePreview.setOnClickListener(View.OnClickListener {
             if(bitmapBlue != null){
                 when(isBlueFiltered){
@@ -112,40 +124,32 @@ class MainActivity : AppCompatActivity() {
                         isBlueFiltered = false
                     }
                     false -> {
-                        binding.imagePreview.setImageBitmap(bitmapBlue)
+                        binding.imagePreview.setImageBitmap(bitmapCustom)
                         isBlueFiltered = true
                     }
                 }
             }
         })
 
-        binding.buttonUpdate.setOnClickListener(View.OnClickListener {
-            val msg : Message = Message()
-
-            CoroutineScope(Dispatchers.Default).launch {
-                val update = async(Dispatchers.Default){
-                    if(bitmap != null)
-                        updateHistogram(bitmap!!)
-                }
-                update.await()
-                mHandler.sendMessage(msg)
-            }
-
-//            CoroutineScope(Dispatchers.Default).launch{
-//                updateHistogram(bitmap!!)
-//            }
-//            clearChart(histogramChart)
-//
-        })
         histogramChart = binding.histogramChart
         chartInit(histogramChart)
         histogramChart.setNoDataText("")
         histogramChart.setBackgroundColor(Color.rgb(0xE3,0xE3,0xE3))
         histogramChart.setDrawGridBackground(false)
 
-        // from: https://github.com/PhilJay/MPAndroidChart/issues/89
+        glucoseChart = binding.glucoseChart
+        chartInit(glucoseChart)
+        glucoseChart.setNoDataText("")
+        glucoseChart.setBackgroundColor(Color.rgb(0xE3,0xE3,0xE3))
+        glucoseChart.setDrawGridBackground(false)
 
-        // from: https://github.com/PhilJay/MPAndroidChart/issues/89
+
+        addEntryGlucose(glucoseChart, 90)
+        addEntryGlucose(glucoseChart, 80)
+        addEntryGlucose(glucoseChart, 100)
+        addEntryGlucose(glucoseChart, 130)
+        addEntryGlucose(glucoseChart, 140)
+        addEntryGlucose(glucoseChart, 100)
 
         binding.indicatorSeekbar.isClickable = false
 
@@ -271,11 +275,35 @@ class MainActivity : AppCompatActivity() {
                 }
                 RC_CROP_IMAGE->{
                     cropUri?.let{ uri ->
+                        val msg : Message = Message()
                         binding.imagePreview.setImageURI(uri)
                         bitmap = binding.imagePreview.drawable.toBitmap()
-//                        bitmapBlue = blueFilter(bitmap!!)
-                        bitmapBlue = blueFilter(bitmap!!)
-                        bitmapGreen = greenFilter(bitmap!!)
+
+                        CoroutineScope(Dispatchers.Default).launch {
+                            val filter = async(Dispatchers.Default){
+                                bitmapBlue = blueFilter(bitmap!!)
+                                bitmapGreen = greenFilter(bitmap!!)
+                                bitmapCustom = customFilter(bitmap!!)
+                            }
+
+                            filter.await()
+
+                            val update = async(Dispatchers.Default){
+                                if(bitmapCustom != null)
+                                    updateHistogram(bitmapCustom!!)
+                            }
+                            update.await()
+//                            mHandler.sendMessage(msg)
+
+                            withContext(Dispatchers.Main){
+                                clearChart(histogramChart)
+                                drawHistogram(histogramChart, HISTOGRAM_BLUE_CHANNEL, histogramBluePixel)
+                                drawHistogram(histogramChart, HISTOGRAM_GREEN_CHANNEL, histogramGreenPixel)
+                                binding.meanText.text = String.format("Filtered Area : %.1f\nBlue mean total : %.1f\nGreen mean total : %.1f\n" +
+                                        "Blue mean filtered : %.1f\nGreen mean filtered : %.1f", filteredArea*100,
+                                    bluePixelMeanTotal, greenPixelMeanTotal, bluePixelMeanFiltered, greenPixelMeanFiltered)
+                            }
+                        }
 //                        updateHistogram(bitmap!!)
 //                        clearChart(histogramChart)
 //                        drawHistogram(histogramChart, HISTOGRAM_BLUE_CHANNEL, histogramBluePixel)
@@ -289,11 +317,9 @@ class MainActivity : AppCompatActivity() {
     private fun blueFilter(inputBitmap : Bitmap) : Bitmap {
         var outputBitmap =
             createBitmap(inputBitmap.width, inputBitmap.height, Bitmap.Config.ARGB_8888)
-        CoroutineScope(Dispatchers.Default).launch {
-            for (i in 0 until inputBitmap.height) {
-                for (j in 0 until inputBitmap.width) {
-                    outputBitmap[j, i] = 0xFF0000FF.toInt() and inputBitmap.getPixel(j, i).toInt()
-                }
+        for (i in 0 until inputBitmap.height) {
+            for (j in 0 until inputBitmap.width) {
+                outputBitmap[j, i] = 0xFF0000FF.toInt() and inputBitmap.getPixel(j, i).toInt()
             }
         }
         return outputBitmap
@@ -302,12 +328,28 @@ class MainActivity : AppCompatActivity() {
     private fun greenFilter(inputBitmap: Bitmap) : Bitmap {
         var outputBitmap =
             createBitmap(inputBitmap.width, inputBitmap.height, Bitmap.Config.ARGB_8888)
-        CoroutineScope(Dispatchers.Default).launch {
-            for (i in 0 until inputBitmap.height) {
-                for (j in 0 until inputBitmap.width) {
-                    val pixel = inputBitmap.getPixel(j,i).toInt()
-                    val green = pixel and 0xFF00FF00.toInt()
-                    outputBitmap[j, i] = green
+        for (i in 0 until inputBitmap.height) {
+            for (j in 0 until inputBitmap.width) {
+                val pixel = inputBitmap.getPixel(j,i).toInt()
+                val green = pixel and 0xFF00FF00.toInt()
+                outputBitmap[j, i] = green
+            }
+        }
+        return outputBitmap
+    }
+
+    private fun customFilter(inputBitmap: Bitmap) : Bitmap {
+        var outputBitmap =
+            createBitmap(inputBitmap.width, inputBitmap.height, Bitmap.Config.ARGB_8888)
+        for (i in 0 until inputBitmap.height) {
+            for (j in 0 until inputBitmap.width) {
+                val pixel = inputBitmap.getPixel(j,i).toInt()
+                val blue = pixel and 0x000000FF.toInt()
+                val green = (pixel and 0x0000FF00.toInt()) shr 8
+                if(green * 2 < blue){
+                    outputBitmap[j, i] = 0
+                }else{
+                    outputBitmap[j, i] = pixel
                 }
             }
         }
@@ -319,18 +361,45 @@ class MainActivity : AppCompatActivity() {
         var tmp2 : Int = 0
         var outputBitmapBlue = MutableList(256){_->0}
         var outputBitmapGreen = MutableList(256){_->0}
+        var bMean = 0.0
+        var gMean = 0.0
 
-        for (i in 0 until inputBitmap.height) {
-            for (j in 0 until inputBitmap.width) {
+        bluePixelMeanFiltered = 0.0
+        greenPixelMeanFiltered = 0.0
+        bluePixelMeanTotal = 0.0
+        greenPixelMeanTotal = 0.0
+        filteredArea = 0.0
+
+        val height = inputBitmap.height
+        val width = inputBitmap.width
+        var cnt = 0
+        for (i in 0 until height) {
+            for (j in 0 until width) {
                 val pixel = inputBitmap.getPixel(j, i).toInt()
                 tmp1 = (0x000000FF.toInt() and pixel)
                 tmp2 = (0x0000FF00.toInt() and pixel) shr 8
+                if(tmp1 != 0){
+                    cnt++
+                }
+                bMean += tmp1
+                gMean += tmp2
                 outputBitmapBlue[tmp1]++
                 outputBitmapGreen[tmp2]++
             }
         }
+        bluePixelMeanTotal = bMean/(width.toFloat() * height.toFloat())
+        greenPixelMeanTotal = gMean/(width.toFloat() * height.toFloat())
+        if(cnt!=0) {
+            bluePixelMeanFiltered = bMean/cnt
+            greenPixelMeanFiltered = gMean/cnt
+        }else{
+            Log.e("updateHistogram", "ERROR :" )
+        }
+        outputBitmapBlue[0] = 0
+        outputBitmapGreen[0] = 0
         histogramBluePixel = outputBitmapBlue
         histogramGreenPixel = outputBitmapGreen
+        filteredArea = cnt/(width.toDouble() * height.toDouble())
 //        return listOf(outputBitmapGreen, outputBitmapBlue)
     }
     private fun clearChart(chart : LineChart) {
@@ -419,28 +488,87 @@ class MainActivity : AppCompatActivity() {
         chart.notifyDataSetChanged()
         chart.setVisibleXRangeMaximum(256f)
         chart.setVisibleXRange(0f,255f)
+
         // this automatically refreshes the chartArray[channel] (calls invalidate())
         chart.moveViewTo(data.entryCount.toFloat(), 50f, YAxis.AxisDependency.LEFT)
 
 
     }
 
+    fun addEntryGlucose(chart: LineChart, num : Int){
+
+        var data = chart.data
+        if (data == null) {
+            data = LineData()
+            chart.data = data
+        }
+        var set = data.getDataSetByIndex(0)
+//        var set = data.getDataSetByIndex(channel)
+        if (set == null) {
+            //set = createSet(channel)
+            set = createSetGlucose()
+            data.addDataSet(set)
+        }
+
+        data.addEntry(Entry(set.entryCount.toFloat(), num.toFloat()), 0)
+        data.notifyDataChanged()
+
+        // let the chart know it's data has changed
+
+
+        chart.notifyDataSetChanged()
+        chart.setVisibleXRangeMaximum(data.entryCount.toFloat())
+        chart.setVisibleXRange(0f,data.entryCount.toFloat())
+
+        // this automatically refreshes the chartArray[channel] (calls invalidate())
+        chart.moveViewTo(data.entryCount.toFloat(), 50f, YAxis.AxisDependency.LEFT)
+    }
+
     private fun createSet(channel : Int): LineDataSet {
-        val set = LineDataSet(null, "CH${channel}")
+        val set: LineDataSet = channel.let{ channel ->
+            when(channel){
+                HISTOGRAM_BLUE_CHANNEL -> LineDataSet(null, "Blue Pixels")
+                HISTOGRAM_GREEN_CHANNEL -> LineDataSet(null, "Green Pixels")
+                GLUCOSE_CHANNEL -> LineDataSet(null, "Glucose Level (mg/dL)")
+                else -> LineDataSet(null, "No Label")
+            }
+        }
         set.lineWidth = 2f
         set.setDrawValues(false)
         set.valueTextColor = Color.BLACK
-        if(channel == HISTOGRAM_BLUE_CHANNEL){
-            set.color = Color.rgb(0x00,0x00,0xEE)
-        } else {
-            set.color = Color.rgb(0x00,0xEE,0x00)
+        when(channel){
+            HISTOGRAM_BLUE_CHANNEL -> {
+                set.color = Color.rgb(0x00,0x00,0xEE)
+                set.mode = LineDataSet.Mode.LINEAR
+            }
+            HISTOGRAM_GREEN_CHANNEL -> {
+                set.color = Color.rgb(0x00, 0xEE, 0x00)
+                set.mode = LineDataSet.Mode.LINEAR
+            }
+            GLUCOSE_CHANNEL -> {
+                set.color = Color.rgb(0xEB, 0x77, 0x72)
+                set.mode = LineDataSet.Mode.CUBIC_BEZIER
+            }
         }
 //        when(channel) {
 //            HISTOGRAM_BLUE_CHANNEL -> set.color = Color.rgb(0x00,0x00,0xEE)
 //            HISTOGRAM_GREEN_CHANNEL -> set.color = Color.rgb(0x00, 0xEE, 0x00)
 //        }
 
-        set.mode = LineDataSet.Mode.LINEAR
+        set.setDrawCircles(false)
+        set.highLightColor = Color.rgb(190, 190, 190)
+        return set
+    }
+
+    private fun createSetGlucose(): LineDataSet {
+
+        val set = LineDataSet(null, "Glucose Level (mg/dL)")
+        set.lineWidth = 2f
+        set.setDrawValues(false)
+        set.valueTextColor = Color.BLACK
+        set.color = Color.rgb(0xEB, 0x77, 0x72)
+        set.mode = LineDataSet.Mode.CUBIC_BEZIER
+
         set.setDrawCircles(false)
         set.highLightColor = Color.rgb(190, 190, 190)
         return set
@@ -449,5 +577,6 @@ class MainActivity : AppCompatActivity() {
         private const val RC_CROP_IMAGE = 1001
         private const val HISTOGRAM_BLUE_CHANNEL = 0
         private const val HISTOGRAM_GREEN_CHANNEL = 1
+        private const val GLUCOSE_CHANNEL = 4
     }
 }
