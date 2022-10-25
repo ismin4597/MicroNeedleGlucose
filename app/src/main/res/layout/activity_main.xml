@@ -16,7 +16,7 @@
         android:text="Glucose Monitoring"
         android:textSize="24sp"
         android:fontFamily="@font/godo_b"
-        android:textColor="@color/main_lightblue"
+        android:textColor="@color/main_background"
         android:background="@color/main_deepblue"
         android:gravity="center_vertical"
         android:paddingStart="20dp"
@@ -212,6 +212,7 @@
         app:layout_constraintEnd_toEndOf="parent"
         android:textSize="12sp"
         android:textColor="@color/main_deepblue"/>
+
 
     <com.github.mikephil.charting.charts.LineChart
         android:id="@+id/glucoseChart"

@@ -31,6 +31,9 @@ import com.github.mikephil.charting.components.YAxis
 import com.github.mikephil.charting.data.Entry
 import com.github.mikephil.charting.data.LineData
 import com.github.mikephil.charting.data.LineDataSet
+import com.github.mikephil.charting.highlight.Highlight
+import com.github.mikephil.charting.interfaces.datasets.ILineDataSet
+import com.github.mikephil.charting.listener.OnChartValueSelectedListener
 import com.lyrebirdstudio.croppylib.Croppy
 import com.lyrebirdstudio.croppylib.main.CropRequest
 import com.lyrebirdstudio.croppylib.main.CroppyTheme
@@ -68,6 +71,8 @@ class MainActivity : AppCompatActivity() {
 
     lateinit var histogramChart : LineChart
     lateinit var glucoseChart : LineChart
+    private var rawMeanArray:ArrayList<Double> = ArrayList<Double>()
+    private var filteredMeanArray:ArrayList<Double> = ArrayList<Double>()
 
     val mHandler = object : Handler(Looper.getMainLooper()) {
         override fun handleMessage (msg : Message) {
@@ -142,15 +147,39 @@ class MainActivity : AppCompatActivity() {
         glucoseChart.setNoDataText("")
         glucoseChart.setBackgroundColor(Color.rgb(0xE3,0xE3,0xE3))
         glucoseChart.setDrawGridBackground(false)
+        glucoseChart.setOnChartValueSelectedListener(object : OnChartValueSelectedListener{
+            override fun onValueSelected(e: Entry?, h: Highlight?) {
+                val xAxisLabel = e?.x.let{
+                    glucoseChart.xAxis.valueFormatter.getAxisLabel(it!!, glucoseChart.xAxis)
+                }
+                var i = glucoseChart.data.dataSets[0].getEntryIndex(e)
+                if(i == -1)
+                    i = glucoseChart.data.dataSets[1].getEntryIndex(e)
+                if(i == -1)
+                    return
+                removeEntryGlucose(glucoseChart, i)
+//                Log.d("REMOVECHART", String.format("selected index : ${i}\t entry count : ${glucoseChart.data.entryCount}"))
+//                glucoseChart.invalidate()
+            }
 
+            override fun onNothingSelected() {
+            }
 
-        addEntryGlucose(glucoseChart, 90)
-        addEntryGlucose(glucoseChart, 80)
-        addEntryGlucose(glucoseChart, 100)
-        addEntryGlucose(glucoseChart, 130)
-        addEntryGlucose(glucoseChart, 140)
-        addEntryGlucose(glucoseChart, 100)
+        })
+//        histogramChart.setOnClickListener {
+//            clearChart(glucoseChart)
+//            removeEntryGlucose(glucoseChart,0) }
 
+//
+//        addEntryGlucose(glucoseChart, 90.toDouble())
+//        addEntryGlucose(glucoseChart, 80.toDouble())
+//        addEntryGlucose(glucoseChart, 100.01)
+//        addEntryGlucose(glucoseChart, 130.01)
+//        addEntryGlucose(glucoseChart, 140.0)
+//        addEntryGlucose(glucoseChart, 100.0)
+
+//        removeEntryGlucose(glucoseChart, 3)
+//
         binding.indicatorSeekbar.isClickable = false
 
 
@@ -290,7 +319,10 @@ class MainActivity : AppCompatActivity() {
 
                             val update = async(Dispatchers.Default){
                                 if(bitmapCustom != null)
-                                    updateHistogram(bitmapCustom!!)
+                                    updateHistogramFiltered(bitmapCustom!!)
+//                                    updateHistogram(bitmapCustom!!)
+                                if(bitmapBlue != null)
+                                    updateHistogramRaw(bitmapBlue!!)
                             }
                             update.await()
 //                            mHandler.sendMessage(msg)
@@ -299,6 +331,8 @@ class MainActivity : AppCompatActivity() {
                                 clearChart(histogramChart)
                                 drawHistogram(histogramChart, HISTOGRAM_BLUE_CHANNEL, histogramBluePixel)
                                 drawHistogram(histogramChart, HISTOGRAM_GREEN_CHANNEL, histogramGreenPixel)
+                                addEntryGlucose(glucoseChart, GLUCOSE_RAW_CHANNEL, bluePixelMeanTotal)
+                                addEntryGlucose(glucoseChart, GLUCOSE_FILTERED_CHANNEL, bluePixelMeanFiltered)
                                 binding.meanText.text = String.format("Filtered Area : %.1f\nBlue mean total : %.1f\nGreen mean total : %.1f\n" +
                                         "Blue mean filtered : %.1f\nGreen mean filtered : %.1f", filteredArea*100,
                                     bluePixelMeanTotal, greenPixelMeanTotal, bluePixelMeanFiltered, greenPixelMeanFiltered)
@@ -402,6 +436,79 @@ class MainActivity : AppCompatActivity() {
         filteredArea = cnt/(width.toDouble() * height.toDouble())
 //        return listOf(outputBitmapGreen, outputBitmapBlue)
     }
+    private fun updateHistogramRaw(inputBitmap: Bitmap) {
+        var tmp1 : Int = 0
+        var tmp2 : Int = 0
+        var outputBitmapBlue = MutableList(256){_->0}
+        var outputBitmapGreen = MutableList(256){_->0}
+        var bMean = 0.0
+        var gMean = 0.0
+
+        bluePixelMeanTotal = 0.0
+        greenPixelMeanTotal = 0.0
+
+        val height = inputBitmap.height
+        val width = inputBitmap.width
+        var cnt = 0
+        for (i in 0 until height) {
+            for (j in 0 until width) {
+                val pixel = inputBitmap.getPixel(j, i).toInt()
+                tmp1 = (0x000000FF.toInt() and pixel)
+                tmp2 = (0x0000FF00.toInt() and pixel) shr 8
+
+                bMean += tmp1
+                gMean += tmp2
+                outputBitmapBlue[tmp1]++
+                outputBitmapGreen[tmp2]++
+            }
+        }
+        bluePixelMeanTotal = bMean/(width.toFloat() * height.toFloat())
+        greenPixelMeanTotal = gMean/(width.toFloat() * height.toFloat())
+//        outputBitmapBlue[0] = 0
+//        outputBitmapGreen[0] = 0
+        histogramBluePixel = outputBitmapBlue
+        histogramGreenPixel = outputBitmapGreen
+//        return listOf(outputBitmapGreen, outputBitmapBlue)
+    }
+
+    private fun updateHistogramFiltered(inputBitmap: Bitmap) {
+        var tmp1 : Int = 0
+        var tmp2 : Int = 0
+        var outputBitmapBlue = MutableList(256){_->0}
+        var outputBitmapGreen = MutableList(256){_->0}
+        var bMean = 0.0
+        var gMean = 0.0
+
+        bluePixelMeanFiltered = 0.0
+        greenPixelMeanFiltered = 0.0
+        filteredArea = 0.0
+
+        val height = inputBitmap.height
+        val width = inputBitmap.width
+        var cnt = 0
+        for (i in 0 until height) {
+            for (j in 0 until width) {
+                val pixel = inputBitmap.getPixel(j, i).toInt()
+                tmp1 = (0x000000FF.toInt() and pixel)
+                tmp2 = (0x0000FF00.toInt() and pixel) shr 8
+                if(tmp1 != 0){
+                    cnt++
+                }
+                bMean += tmp1
+                gMean += tmp2
+            }
+        }
+
+        if(cnt!=0) {
+            bluePixelMeanFiltered = bMean/cnt
+            greenPixelMeanFiltered = gMean/cnt
+        }else{
+            Log.e("updateHistogram", "ERROR :" )
+        }
+
+        filteredArea = cnt/(width.toDouble() * height.toDouble())
+//        return listOf(outputBitmapGreen, outputBitmapBlue)
+    }
     private fun clearChart(chart : LineChart) {
         chart.fitScreen()
         chart.data?.clearValues()
@@ -495,41 +602,11 @@ class MainActivity : AppCompatActivity() {
 
     }
 
-    fun addEntryGlucose(chart: LineChart, num : Int){
-
-        var data = chart.data
-        if (data == null) {
-            data = LineData()
-            chart.data = data
-        }
-        var set = data.getDataSetByIndex(0)
-//        var set = data.getDataSetByIndex(channel)
-        if (set == null) {
-            //set = createSet(channel)
-            set = createSetGlucose()
-            data.addDataSet(set)
-        }
-
-        data.addEntry(Entry(set.entryCount.toFloat(), num.toFloat()), 0)
-        data.notifyDataChanged()
-
-        // let the chart know it's data has changed
-
-
-        chart.notifyDataSetChanged()
-        chart.setVisibleXRangeMaximum(data.entryCount.toFloat())
-        chart.setVisibleXRange(0f,data.entryCount.toFloat())
-
-        // this automatically refreshes the chartArray[channel] (calls invalidate())
-        chart.moveViewTo(data.entryCount.toFloat(), 50f, YAxis.AxisDependency.LEFT)
-    }
-
     private fun createSet(channel : Int): LineDataSet {
         val set: LineDataSet = channel.let{ channel ->
             when(channel){
                 HISTOGRAM_BLUE_CHANNEL -> LineDataSet(null, "Blue Pixels")
                 HISTOGRAM_GREEN_CHANNEL -> LineDataSet(null, "Green Pixels")
-                GLUCOSE_CHANNEL -> LineDataSet(null, "Glucose Level (mg/dL)")
                 else -> LineDataSet(null, "No Label")
             }
         }
@@ -545,10 +622,7 @@ class MainActivity : AppCompatActivity() {
                 set.color = Color.rgb(0x00, 0xEE, 0x00)
                 set.mode = LineDataSet.Mode.LINEAR
             }
-            GLUCOSE_CHANNEL -> {
-                set.color = Color.rgb(0xEB, 0x77, 0x72)
-                set.mode = LineDataSet.Mode.CUBIC_BEZIER
-            }
+
         }
 //        when(channel) {
 //            HISTOGRAM_BLUE_CHANNEL -> set.color = Color.rgb(0x00,0x00,0xEE)
@@ -560,14 +634,104 @@ class MainActivity : AppCompatActivity() {
         return set
     }
 
-    private fun createSetGlucose(): LineDataSet {
+    private fun addEntryGlucose(chart: LineChart, channel : Int, num : Double){
+        when(channel){
+            GLUCOSE_RAW_CHANNEL -> rawMeanArray.add(num)
+            GLUCOSE_FILTERED_CHANNEL -> filteredMeanArray.add(num)
+        }
+        var data = chart.data
+        if (data == null) {
+            data = LineData()
+            chart.data = data
+        }
+        var set = data.getDataSetByIndex(channel)
+//        var set = data.getDataSetByIndex(channel)
+        if (set == null) {
+            //set = createSet(channel)
+            set = createSetGlucose(channel)
+            data.addDataSet(set)
+        }
 
-        val set = LineDataSet(null, "Glucose Level (mg/dL)")
-        set.lineWidth = 2f
+        data.addEntry(Entry(set.entryCount.toFloat(), num.toFloat()), channel)
+        data.notifyDataChanged()
+
+        // let the chart know it's data has changed
+
+
+        chart.notifyDataSetChanged()
+        chart.setVisibleXRangeMaximum(data.entryCount.toFloat())
+        chart.setVisibleXRange(0f,data.entryCount.toFloat())
+
+        // this automatically refreshes the chartArray[channel] (calls invalidate())
+        chart.moveViewTo(data.entryCount.toFloat(), 50f, YAxis.AxisDependency.LEFT)
+    }
+    private fun addEntryGlucoseWithoutArray(chart: LineChart, channel: Int, num : Double){
+        var data = chart.data
+        if (data == null) {
+            data = LineData()
+            chart.data = data
+        }
+        var set = data.getDataSetByIndex(channel)
+//        var set = data.getDataSetByIndex(channel)
+        if (set == null) {
+            //set = createSet(channel)
+            set = createSetGlucose(channel)
+            data.addDataSet(set)
+        }
+
+        data.addEntry(Entry(set.entryCount.toFloat(), num.toFloat()), channel)
+        data.notifyDataChanged()
+
+        // let the chart know it's data has changed
+
+
+        chart.notifyDataSetChanged()
+        chart.setVisibleXRangeMaximum(data.entryCount.toFloat())
+        chart.setVisibleXRange(0f,data.entryCount.toFloat())
+
+        // this automatically refreshes the chartArray[channel] (calls invalidate())
+        chart.moveViewTo(data.entryCount.toFloat(), 50f, YAxis.AxisDependency.LEFT)
+    }
+
+    private fun removeEntryGlucose(chart : LineChart, idx : Int){
+
+        clearChart(chart)
+//        val tmp1 = rawMeanArray[idx]
+//        val tmp2 = filteredMeanArray[idx]
+        Log.d("REMOVECHART", "before remove : $rawMeanArray")
+        if((idx >= rawMeanArray.size) or (rawMeanArray.size == 1))
+            return
+        Log.d("REMOVECHART", "!")
+        rawMeanArray.removeAt(idx)
+        filteredMeanArray.removeAt(idx)
+        Log.d("REMOVECHART", "after remove : $rawMeanArray")
+        for (element in rawMeanArray) {
+            addEntryGlucoseWithoutArray(chart, GLUCOSE_RAW_CHANNEL, element)
+        }
+        for (element in filteredMeanArray){
+            addEntryGlucoseWithoutArray(chart, GLUCOSE_FILTERED_CHANNEL, element)
+        }
+    }
+
+
+    private fun createSetGlucose(channel: Int): LineDataSet {
+
+        var set : LineDataSet? = null
+        when(channel){
+            GLUCOSE_RAW_CHANNEL-> {
+                set = LineDataSet(null, "Raw Blue mean")
+                set.color = Color.rgb(0x11, 0x11, 0xF0)
+            }
+            GLUCOSE_FILTERED_CHANNEL -> {
+                set = LineDataSet(null, "Filtered Blue mean")
+                set.color = Color.rgb(0x11,0x88, 0xF0)
+            }
+        }
+        set!!.lineWidth = 2f
         set.setDrawValues(false)
         set.valueTextColor = Color.BLACK
-        set.color = Color.rgb(0xEB, 0x77, 0x72)
-        set.mode = LineDataSet.Mode.CUBIC_BEZIER
+//        set.color = Color.rgb(0xEB, 0x77, 0x72)
+//        set.mode = LineDataSet.Mode.CUBIC_BEZIER
 
         set.setDrawCircles(false)
         set.highLightColor = Color.rgb(190, 190, 190)
@@ -577,6 +741,7 @@ class MainActivity : AppCompatActivity() {
         private const val RC_CROP_IMAGE = 1001
         private const val HISTOGRAM_BLUE_CHANNEL = 0
         private const val HISTOGRAM_GREEN_CHANNEL = 1
-        private const val GLUCOSE_CHANNEL = 4
+        private const val GLUCOSE_RAW_CHANNEL = 0
+        private const val GLUCOSE_FILTERED_CHANNEL = 1
     }
 }
