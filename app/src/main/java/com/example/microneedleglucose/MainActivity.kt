@@ -42,6 +42,7 @@ import com.lyrebirdstudio.croppylib.util.file.FileCreator
 import com.lyrebirdstudio.croppylib.util.file.FileExtension
 import com.lyrebirdstudio.croppylib.util.file.FileOperationRequest
 import kotlinx.coroutines.*
+import java.io.DataInputStream
 import java.io.File
 import java.util.logging.ErrorManager
 
@@ -182,6 +183,24 @@ class MainActivity : AppCompatActivity() {
 //
         binding.indicatorSeekbar.isClickable = false
 
+        val input = openFileInput("glucoseTest.txt")
+        val str = input.reader().readText()
+        val strArray = str.split("\n")
+        for (element in strArray){
+            addEntryGlucose(glucoseChart, GLUCOSE_FILTERED_CHANNEL, element.toDouble())
+        }
+//        var valueUTF = dis.readUTF()           //문자형 type
+////        var strArray = valueUTF.split('\n')
+////        Log.d("valueUTF", strArray.size.toString())
+//        while(true){
+//            val str = dis.readLine()
+//            Log.d("STRSPLIT", str)
+//
+//            val x = str.toDouble()
+//            addEntryGlucose(glucoseChart, GLUCOSE_FILTERED_CHANNEL,x)
+//
+//        }
+//        dis.close() //종료
 
     }
 
