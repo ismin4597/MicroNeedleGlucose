@@ -9,6 +9,8 @@ import androidx.appcompat.app.AppCompatActivity
 import android.os.Bundle
 import android.provider.MediaStore
 import android.util.Log
+import android.view.MotionEvent
+import android.view.View
 import android.widget.Toast
 import androidx.camera.core.*
 import androidx.camera.lifecycle.ProcessCameraProvider
@@ -23,8 +25,8 @@ import java.util.*
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
 
-class cameraActivity : AppCompatActivity() {
-    private lateinit var viewBinding: ActivityCameraBinding
+class CameraActivity : AppCompatActivity() {
+    private lateinit var binding: ActivityCameraBinding
 
     private var imageCapture: ImageCapture? = null
 
@@ -39,26 +41,43 @@ class cameraActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        viewBinding = ActivityCameraBinding.inflate(layoutInflater)
-        setContentView(viewBinding.root)
+        binding = ActivityCameraBinding.inflate(layoutInflater)
+        setContentView(binding.root)
 
         // Request camera permissions
         if (allPermissionsGranted()) {
             startCamera()
         } else {
             ActivityCompat.requestPermissions(
-                this@cameraActivity, REQUIRED_PERMISSIONS, REQUEST_CODE_PERMISSIONS)
+                this@CameraActivity, REQUIRED_PERMISSIONS, REQUEST_CODE_PERMISSIONS)
         }
 
         // Set up the listeners for take photo and video capture buttons
-        viewBinding.imageCaptureButton.setOnClickListener { takePhoto() }
-        viewBinding.torchButton.setOnClickListener{
+        binding.imageCaptureButton.setOnClickListener { takePhoto() }
+        binding.torchButton.setOnClickListener{
             when(cameraInfo?.torchState?.value){
                 TorchState.ON -> cameraController?.enableTorch(false)
                 TorchState.OFF -> cameraController?.enableTorch(true)
             }
         }
 
+        binding.viewFinder.setOnTouchListener{ v: View, e:MotionEvent->
+            when(e.action){
+                MotionEvent.ACTION_DOWN->{
+                    v.performClick()
+                    return@setOnTouchListener true
+                }
+                MotionEvent.ACTION_UP->{
+                    val factory = binding.viewFinder.meteringPointFactory
+                    val point = factory.createPoint(e.x,e.y)
+                    val action = FocusMeteringAction.Builder(point).build()
+                    cameraController?.startFocusAndMetering(action)
+                    v.performClick()
+                    return@setOnTouchListener true
+                }
+                else->return@setOnTouchListener false
+            }
+        }
         cameraExecutor = Executors.newSingleThreadExecutor()
     }
     override fun onRequestPermissionsResult(
@@ -133,7 +152,7 @@ class cameraActivity : AppCompatActivity() {
             val preview = Preview.Builder()
                 .build()
                 .also{
-                    it.setSurfaceProvider(viewBinding.viewFinder.surfaceProvider)
+                    it.setSurfaceProvider(binding.viewFinder.surfaceProvider)
                 }
             imageCapture = ImageCapture.Builder().build()
             val cameraSelector = CameraSelector.DEFAULT_BACK_CAMERA
@@ -143,7 +162,7 @@ class cameraActivity : AppCompatActivity() {
                 camera = cameraProvider.bindToLifecycle(this, cameraSelector, preview, imageCapture)
                 cameraController = camera!!.cameraControl
                 cameraInfo = camera!!.cameraInfo
-                cameraController!!.enableTorch(true)
+                cameraController!!.enableTorch(false)
             } catch (e : Exception) {
                 Log.e("Error", "Use case binding failed", e)
             }

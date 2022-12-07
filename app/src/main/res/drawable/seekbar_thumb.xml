@@ -4,7 +4,7 @@
     android:useLevel="false">
     <!-- 배경 -->
     <solid
-        android:color="@color/main_deepblue"/>
+        android:color="@color/black"/>
     <!-- 테두리 -->
 
     <corners
@@ -12,5 +12,5 @@
     <!-- 크기 -->
     <size
         android:width="6dp"
-        android:height="50dp"/>
+        android:height="30dp"/>
 </shape>

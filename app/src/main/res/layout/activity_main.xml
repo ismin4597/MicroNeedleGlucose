@@ -22,113 +22,96 @@
         android:paddingStart="20dp"
         />
 
-    <SeekBar
-        android:id="@+id/indicatorSeekbar"
-        android:layout_width="250dp"
-        android:layout_height="20dp"
-        android:progressDrawable="@drawable/seekbar_progress"
-        android:thumb="@drawable/seekbar_thumb"
-        app:layout_constraintTop_toBottomOf="@id/titleTextView"
+    <LinearLayout
+        android:id="@+id/layoutSeekbar"
+        android:layout_width="50dp"
+        android:layout_height="250dp"
+        android:background="@color/main_background"
         app:layout_constraintStart_toStartOf="parent"
-        android:layout_marginTop="50dp"
-        android:layout_marginStart="10dp"
-        android:paddingEnd="0dp"
-        android:paddingStart="0dp"
-        android:max="4"
-        android:progress="2"/>
+        app:layout_constraintTop_toBottomOf="@id/titleTextView">
+
+        <SeekBar
+            android:id="@+id/indicatorSeekbar"
+            android:layout_width="200dp"
+            android:layout_height="match_parent"
+            android:layout_marginStart="10dp"
+            android:elevation="3dp"
+            android:max="2"
+            android:paddingStart="0dp"
+            android:paddingEnd="0dp"
+            android:progress="1"
+            android:progressDrawable="@drawable/seekbar_progress"
+            android:rotation="270"
+            android:thumb="@drawable/seekbar_thumb"
+            android:translationX="-80dp"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toBottomOf="@id/titleTextView" />
+
+    </LinearLayout>
+
     <TextView
         android:id="@+id/glucoseTextView"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="90~100mg/dl"
-        app:layout_constraintTop_toBottomOf="@id/indicatorSeekbar"
-        app:layout_constraintStart_toStartOf="@id/indicatorSeekbar"
-        app:layout_constraintEnd_toEndOf="@id/indicatorSeekbar"
+        android:text="N/A"
+        app:layout_constraintStart_toEndOf="@id/layoutSeekbar"
+        app:layout_constraintEnd_toStartOf="@id/imagePreview"
+        app:layout_constraintTop_toTopOf="@id/layoutSeekbar"
+        app:layout_constraintBottom_toBottomOf="@id/layoutSeekbar"
+        app:layout_constraintHorizontal_bias="0.3"
+        app:layout_constraintVertical_bias="0.45"
         android:layout_marginTop="20dp"
-        android:textSize="20sp"
+        android:textSize="24sp"
         android:fontFamily="@font/godo_b"
-        android:textColor="@color/main_deepblue"/>
+        android:textColor="@color/black"/>
+
     <TextView
-        android:id="@+id/measureTimeTextView"
+        android:id="@+id/meanText"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         app:layout_constraintTop_toBottomOf="@id/glucoseTextView"
         app:layout_constraintStart_toStartOf="@id/glucoseTextView"
         app:layout_constraintEnd_toEndOf="@id/glucoseTextView"
-        android:text="2022/10/10 PM11:59:59"
-        android:fontFamily="@font/godo_m"
-        android:textColor="@color/main_greyblue"
-        android:textSize="20sp"/>
+        android:layout_marginStart="10dp"
+        android:layout_marginTop="10dp"
+        android:textSize="12sp"
+        android:fontFamily="@font/godo_b"
+        android:textColor="@color/black"/>
 
-    <TextView
-        android:id="@+id/indicatorText1"
+    <Button
+        android:id="@+id/buttonCalibrate"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        app:layout_constraintStart_toStartOf="@id/indicatorSeekbar"
-        app:layout_constraintEnd_toEndOf="@id/indicatorSeekbar"
-        app:layout_constraintBottom_toTopOf="@id/indicatorSeekbar"
-        app:layout_constraintHorizontal_bias="0"
-        android:text="Good"
-        android:textSize="14sp"
-        android:textColor="@color/main_greyblue"
-        android:fontFamily="@font/godo_b"/>
-
-    <TextView
-        android:id="@+id/indicatorText2"
+        app:layout_constraintBottom_toTopOf="@id/glucoseChart"
+        app:layout_constraintStart_toStartOf="parent"
+        android:layout_marginStart="10dp"
+        android:textAllCaps="false"
+        android:text="Calibrate"
+        android:fontFamily="@font/godo_b"
+        android:background="@drawable/buttonbackground2"
+        android:textColor="@color/black"
+        android:elevation="3dp"
+        android:textSize="16sp"/>
+    <Button
+        android:id="@+id/buttonAdd"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        app:layout_constraintStart_toStartOf="@id/indicatorSeekbar"
-        app:layout_constraintEnd_toEndOf="@id/indicatorSeekbar"
-        app:layout_constraintBottom_toTopOf="@id/indicatorSeekbar"
-        app:layout_constraintHorizontal_bias="0.25"
-        android:text="|"
-        android:textSize="14sp"
-        android:textColor="@color/main_greyblue"
-        android:fontFamily="@font/godo_b"/>
+        app:layout_constraintBottom_toTopOf="@id/glucoseChart"
+        app:layout_constraintStart_toEndOf="@id/buttonCalibrate"
+        android:layout_marginStart="5dp"
+        android:textAllCaps="false"
+        android:text="Add"
+        android:fontFamily="@font/godo_b"
+        android:background="@drawable/buttonbackground2"
+        android:textColor="@color/black"
+        android:elevation="3dp"
+        android:textSize="16sp"/>
 
-    <TextView
-        android:id="@+id/indicatorText3"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        app:layout_constraintStart_toStartOf="@id/indicatorSeekbar"
-        app:layout_constraintEnd_toEndOf="@id/indicatorSeekbar"
-        app:layout_constraintBottom_toTopOf="@id/indicatorSeekbar"
-        app:layout_constraintHorizontal_bias="0.5"
-        android:text="|"
-        android:textSize="14sp"
-        android:textColor="@color/main_greyblue"
-        android:fontFamily="@font/godo_b"/>
-
-    <TextView
-        android:id="@+id/indicatorText4"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        app:layout_constraintStart_toStartOf="@id/indicatorSeekbar"
-        app:layout_constraintEnd_toEndOf="@id/indicatorSeekbar"
-        app:layout_constraintBottom_toTopOf="@id/indicatorSeekbar"
-        app:layout_constraintHorizontal_bias="0.75"
-        android:text="|"
-        android:textSize="14sp"
-        android:textColor="@color/main_greyblue"
-        android:fontFamily="@font/godo_b"/>
-
-    <TextView
-        android:id="@+id/indicatorText5"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        app:layout_constraintStart_toStartOf="@id/indicatorSeekbar"
-        app:layout_constraintEnd_toEndOf="@id/indicatorSeekbar"
-        app:layout_constraintBottom_toTopOf="@id/indicatorSeekbar"
-        app:layout_constraintHorizontal_bias="1.0"
-        android:text="Danger"
-        android:textSize="14sp"
-        android:textColor="@color/main_greyblue"
-        android:fontFamily="@font/godo_b"/>
 
     <Button
         android:id="@+id/buttonCamera"
-        android:layout_width="40dp"
-        android:layout_height="40dp"
+        android:layout_width="50dp"
+        android:layout_height="50dp"
         android:layout_marginTop="10dp"
         android:background="@drawable/cameraicon2"
         android:textAllCaps="false"
@@ -139,23 +122,23 @@
         app:layout_constraintStart_toStartOf="@id/imagePreview"
         app:layout_constraintTop_toBottomOf="@id/imagePreview" />
 
-<!--    <TextView-->
-<!--        android:layout_width="50dp"-->
-<!--        android:layout_height="18dp"-->
-<!--        android:textAllCaps="false"-->
-<!--        android:text="Capture"-->
-<!--        android:fontFamily="@font/godo_m"-->
-<!--        android:textSize="10sp"-->
-<!--        android:gravity="center"-->
-<!--        app:layout_constraintStart_toStartOf="@id/buttonCamera"-->
-<!--        app:layout_constraintEnd_toEndOf="@id/buttonCamera"-->
-<!--        app:layout_constraintTop_toBottomOf="@id/buttonCamera"-->
-<!--        android:textColor="@color/main_greyblue"/>-->
+    <!--    <TextView-->
+    <!--        android:layout_width="50dp"-->
+    <!--        android:layout_height="18dp"-->
+    <!--        android:textAllCaps="false"-->
+    <!--        android:text="Capture"-->
+    <!--        android:fontFamily="@font/godo_m"-->
+    <!--        android:textSize="10sp"-->
+    <!--        android:gravity="center"-->
+    <!--        app:layout_constraintStart_toStartOf="@id/buttonCamera"-->
+    <!--        app:layout_constraintEnd_toEndOf="@id/buttonCamera"-->
+    <!--        app:layout_constraintTop_toBottomOf="@id/buttonCamera"-->
+    <!--        android:textColor="@color/main_greyblue"/>-->
 
     <Button
         android:id="@+id/buttonLoad"
-        android:layout_width="40dp"
-        android:layout_height="40dp"
+        android:layout_width="50dp"
+        android:layout_height="50dp"
         android:textAllCaps="false"
         android:textSize="16sp"
         android:textColor="@color/main_lightyellow"
@@ -166,22 +149,22 @@
         android:layout_marginTop="10dp"
         android:background="@drawable/galleryicon1"/>
 
-<!--    <TextView-->
-<!--        android:layout_width="50dp"-->
-<!--        android:layout_height="18dp"-->
-<!--        android:textAllCaps="false"-->
-<!--        android:text="Load"-->
-<!--        android:fontFamily="@font/godo_m"-->
-<!--        android:textSize="10sp"-->
-<!--        android:gravity="center"-->
-<!--        app:layout_constraintStart_toStartOf="@id/buttonLoad"-->
-<!--        app:layout_constraintEnd_toEndOf="@id/buttonLoad"-->
-<!--        app:layout_constraintTop_toBottomOf="@id/buttonLoad"-->
-<!--        android:textColor="@color/main_greyblue"/>-->
+    <!--    <TextView-->
+    <!--        android:layout_width="50dp"-->
+    <!--        android:layout_height="18dp"-->
+    <!--        android:textAllCaps="false"-->
+    <!--        android:text="Load"-->
+    <!--        android:fontFamily="@font/godo_m"-->
+    <!--        android:textSize="10sp"-->
+    <!--        android:gravity="center"-->
+    <!--        app:layout_constraintStart_toStartOf="@id/buttonLoad"-->
+    <!--        app:layout_constraintEnd_toEndOf="@id/buttonLoad"-->
+    <!--        app:layout_constraintTop_toBottomOf="@id/buttonLoad"-->
+    <!--        android:textColor="@color/main_greyblue"/>-->
     <ImageView
         android:id="@+id/imagePreview"
-        android:layout_width="140dp"
-        android:layout_height="140dp"
+        android:layout_width="200dp"
+        android:layout_height="200dp"
         app:layout_constraintTop_toBottomOf="@id/titleTextView"
         app:layout_constraintEnd_toEndOf="parent"
         android:layout_marginTop="20dp"
@@ -192,40 +175,31 @@
         />
 
 
-    <com.github.mikephil.charting.charts.LineChart
-        android:id="@+id/histogramChart"
-        android:layout_width="match_parent"
-        android:layout_height="200dp"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintTop_toBottomOf="@id/buttonCamera"
-        android:background="@drawable/chartbackground"
-        android:layout_marginStart="10dp"
-        android:layout_marginEnd="10dp"
-        android:layout_marginTop="30dp"/>
-    <TextView
-        android:id="@+id/meanText"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        app:layout_constraintBottom_toTopOf="@id/histogramChart"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintEnd_toEndOf="parent"
-        android:textSize="12sp"
-        android:textColor="@color/main_deepblue"/>
+<!--    <com.github.mikephil.charting.charts.LineChart-->
+<!--        android:id="@+id/histogramChart"-->
+<!--        android:layout_width="match_parent"-->
+<!--        android:layout_height="200dp"-->
+<!--        app:layout_constraintStart_toStartOf="parent"-->
+<!--        app:layout_constraintEnd_toEndOf="parent"-->
+<!--        app:layout_constraintTop_toBottomOf="@id/buttonCamera"-->
+<!--        android:background="@drawable/chartbackground"-->
+<!--        android:layout_marginStart="10dp"-->
+<!--        android:layout_marginEnd="10dp"-->
+<!--        android:layout_marginTop="30dp"/>-->
+
 
 
     <com.github.mikephil.charting.charts.LineChart
         android:id="@+id/glucoseChart"
         android:layout_width="match_parent"
-        android:layout_height="250dp"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintTop_toBottomOf="@id/histogramChart"
-        android:layout_marginTop="20dp"
+        android:layout_height="340dp"
         android:layout_marginStart="10dp"
         android:layout_marginEnd="10dp"
-        android:background="@drawable/chartbackground"/>
-
+        android:background="@drawable/chartbackground"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintHorizontal_bias="1.0"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@id/buttonCamera" />
 
 
 </androidx.constraintlayout.widget.ConstraintLayout>
