@@ -11,12 +11,14 @@ import android.icu.text.SimpleDateFormat
 import android.net.Uri
 import android.os.*
 import android.provider.MediaStore
+import android.util.Log
 import android.view.View
 import android.view.View.INVISIBLE
 import android.view.View.VISIBLE
 import android.widget.Toast
 import androidx.activity.result.ActivityResultLauncher
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.annotation.RequiresApi
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
 import androidx.core.graphics.createBitmap
@@ -40,7 +42,8 @@ import com.lyrebirdstudio.croppylib.util.file.FileExtension
 import com.lyrebirdstudio.croppylib.util.file.FileOperationRequest
 import kotlinx.coroutines.*
 import java.io.File
-
+import java.util.*
+import kotlin.collections.ArrayList
 
 
 class MainActivity : AppCompatActivity() {
@@ -54,13 +57,14 @@ class MainActivity : AppCompatActivity() {
 //    private var bitmapGreen : Bitmap? = null
     private var bitmapCustom : Bitmap? = null
     private var bitmapCustomRev : Bitmap? = null
+    private var isFiltered : Boolean = false
+    private var isClicked : Boolean = false
     private var histogramBluePixel = MutableList<Int>(256) { _ -> 0 }
     private var histogramGreenPixel = MutableList<Int>(256) { _ -> 0 }
 
     private var currentDataCnt = 0
     private var currentGlucose : Double? = null
 
-    private var isUpdated = false
 //    private var bluePixelMeanFiltered : Double = 0.0
 //    private var bluePixelMeanTotal : Double = 0.0
     private var greenPixelMeanFiltered : Double = 0.0
@@ -113,7 +117,16 @@ class MainActivity : AppCompatActivity() {
         binding.imagePreview.clipToOutline = true
         binding.imagePreview.setOnClickListener(View.OnClickListener {
             if(bitmapCustom != null){
-                binding.imagePreview.setImageBitmap(bitmapCustom)
+                when(isClicked){
+                    false-> {
+                        binding.imagePreview.setImageBitmap(bitmapCustom)
+                        isClicked = true
+                    }
+                    true-> {
+                        binding.imagePreview.setImageBitmap(bitmap)
+                        isClicked = false
+                    }
+                }
             }
         })
 
@@ -128,6 +141,7 @@ class MainActivity : AppCompatActivity() {
                     glucoseChart.xAxis.valueFormatter.getAxisLabel(it!!, glucoseChart.xAxis)
                 }
                 val i = glucoseChart.data.dataSets[0].getEntryIndex(e)
+                Log.d("ChartRemove", "Removed index : $i\tRemoved Entry : $e")
                 if(i == -1)
                     return
                 removeEntryGlucose(glucoseChart, i)
@@ -143,11 +157,12 @@ class MainActivity : AppCompatActivity() {
                 val newAvg = (glucoseMeanArray.last() * glucoseMeanCntArray.last() + currentGlucose!!) / (glucoseMeanCntArray.last()+1)// 나눗셈안했음
                 glucoseMeanArray[glucoseMeanArray.size-1] = newAvg
                 glucoseMeanCntArray[glucoseMeanCntArray.size-1] += 1
-                currentGlucose = null
                 clearChart(glucoseChart)
                 for (element in glucoseMeanArray){
                     addEntryGlucose(glucoseChart, GLUCOSE_FILTERED_CHANNEL, element)
                 }
+                currentGlucose = null
+                isFiltered = false
             }
         }
         binding.buttonAdd.setOnClickListener {
@@ -156,16 +171,20 @@ class MainActivity : AppCompatActivity() {
                 glucoseMeanCntArray.add(1)
                 addEntryGlucose(glucoseChart, GLUCOSE_FILTERED_CHANNEL, glucoseMeanArray.last())
                 currentGlucose = null
+                isFiltered = false
             }
         }
 
         binding.indicatorSeekbar.isEnabled = false
-//        val input = openFileInput("glucoseTest.txt")
-//        val str = input.reader().readText()
-//        val strArray = str.split("\n")
-//        for (element in strArray){
-//            addEntryGlucose(glucoseChart, GLUCOSE_FILTERED_CHANNEL, element.toDouble())
-//        }
+        val input = openFileInput("glucoseTest.txt")
+        val str = input.reader().readText()
+        val strArray = str.split("\n")
+        for (element in strArray){
+            val y = element.toDouble()
+            glucoseMeanArray.add(y)
+            glucoseMeanCntArray.add(1)
+            addEntryGlucose(glucoseChart, GLUCOSE_FILTERED_CHANNEL, y)
+        }
 
     }
 
@@ -199,7 +218,7 @@ class MainActivity : AppCompatActivity() {
         Croppy.start(this, manualCropRequest)
     }
 
-    fun requirePermissions(permissions : Array<String>, requestCode : Int){
+    private fun requirePermissions(permissions : Array<String>, requestCode : Int){
         if(Build.VERSION.SDK_INT < Build.VERSION_CODES.M) {
             permissionGranted(requestCode)
         } else {
@@ -271,6 +290,7 @@ class MainActivity : AppCompatActivity() {
         return contentResolver.insert(MediaStore.Files.getContentUri("external"), values);
     }
 
+    @RequiresApi(Build.VERSION_CODES.N)
     override fun onActivityResult(requestCode : Int, resultCode : Int, data : Intent?){
         super.onActivityResult(requestCode, resultCode, data)
 
@@ -293,8 +313,10 @@ class MainActivity : AppCompatActivity() {
                             val filter = async(Dispatchers.Default){
 //                                bitmapBlue = blueFilter(bitmap!!)
 //                                bitmapGreen = greenFilter(bitmap!!)
-                                bitmapCustom = customFilter(bitmap!!)
-                                bitmapCustomRev = customFilterRev(bitmap!!)
+                                val filterResult = customFilter(bitmap!!)
+                                bitmapCustom = filterResult[0]
+                                bitmapCustomRev = filterResult[1]
+                                isFiltered = true
                             }
 
                             filter.await()
@@ -310,7 +332,10 @@ class MainActivity : AppCompatActivity() {
                             withContext(Dispatchers.Main){
                                 currentGlucose = glucoseResult
                                 if(glucoseResult != 0.0){
-                                    binding.meanText.text = String.format("Fluorescence : %.2f", glucoseResult)
+                                    Log.d("GlucoseResult", glucoseResult.toString())
+                                    val sdf = SimpleDateFormat("MM/dd HH:mm:ss", Locale.getDefault())
+                                    val timeStamp = sdf.format(System.currentTimeMillis())
+                                    binding.meanText.text = timeStamp
                                     binding.meanText.visibility = VISIBLE
                                     if(glucoseResult >= GLUCOSE_HIGH_THRESHOLD){
                                         binding.indicatorSeekbar.progress = GLUCOSE_HIGH_SEEKBAR
@@ -332,7 +357,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun blueFilter(inputBitmap : Bitmap) : Bitmap {
-        var outputBitmap =
+        val outputBitmap =
             createBitmap(inputBitmap.width, inputBitmap.height, Bitmap.Config.ARGB_8888)
         for (i in 0 until inputBitmap.height) {
             for (j in 0 until inputBitmap.width) {
@@ -343,7 +368,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun greenFilter(inputBitmap: Bitmap) : Bitmap {
-        var outputBitmap =
+        val outputBitmap =
             createBitmap(inputBitmap.width, inputBitmap.height, Bitmap.Config.ARGB_8888)
         for (i in 0 until inputBitmap.height) {
             for (j in 0 until inputBitmap.width) {
@@ -355,40 +380,44 @@ class MainActivity : AppCompatActivity() {
         return outputBitmap
     }
 
-    private fun customFilter(inputBitmap: Bitmap) : Bitmap {
+    private fun customFilter(inputBitmap: Bitmap) : Array<Bitmap?> {
         val outputBitmap =
+            createBitmap(inputBitmap.width, inputBitmap.height, Bitmap.Config.ARGB_8888)
+        val outputBitmapRev =
             createBitmap(inputBitmap.width, inputBitmap.height, Bitmap.Config.ARGB_8888)
         for (i in 0 until inputBitmap.height) {
             for (j in 0 until inputBitmap.width) {
                 val pixel = inputBitmap.getPixel(j,i).toInt()
                 val blue = pixel and 0x000000FF.toInt()
                 val green = (pixel and 0x0000FF00.toInt()) shr 8
-                if(green < THRESHOLD * blue){
+                if(green < FLUORESCENCE_THRESHOLD * blue){
                     outputBitmap[j, i] = 0
+                    outputBitmapRev[j, i] = pixel
                 }else{
                     outputBitmap[j, i] = pixel
+                    outputBitmapRev[j, i] = 0
                 }
             }
         }
-        return outputBitmap
+        return arrayOf(outputBitmap, outputBitmapRev)
     }
-    private fun customFilterRev(inputBitmap: Bitmap) : Bitmap {
-        val outputBitmap =
-            createBitmap(inputBitmap.width, inputBitmap.height, Bitmap.Config.ARGB_8888)
-        for (i in 0 until inputBitmap.height) {
-            for (j in 0 until inputBitmap.width) {
-                val pixel = inputBitmap.getPixel(j,i).toInt()
-                val blue = pixel and 0x000000FF.toInt()
-                val green = (pixel and 0x0000FF00.toInt()) shr 8
-                if(green >= THRESHOLD * blue){
-                    outputBitmap[j, i] = 0
-                }else{
-                    outputBitmap[j, i] = pixel
-                }
-            }
-        }
-        return outputBitmap
-    }
+//    private fun customFilterRev(inputBitmap: Bitmap) : Bitmap {
+//        val outputBitmap =
+//            createBitmap(inputBitmap.width, inputBitmap.height, Bitmap.Config.ARGB_8888)
+//        for (i in 0 until inputBitmap.height) {
+//            for (j in 0 until inputBitmap.width) {
+//                val pixel = inputBitmap.getPixel(j,i).toInt()
+//                val blue = pixel and 0x000000FF.toInt()
+//                val green = (pixel and 0x0000FF00.toInt()) shr 8
+//                if(green >= FLUORESCENCE_THRESHOLD * blue){
+//                    outputBitmap[j, i] = 0
+//                }else{
+//                    outputBitmap[j, i] = pixel
+//                }
+//            }
+//        }
+//        return outputBitmap
+//    }
 
     private fun getFilteredBlueMean(inputBitmap: Bitmap) : Double {
         var bluetmp = 0
@@ -463,6 +492,9 @@ class MainActivity : AppCompatActivity() {
         yAxis.isEnabled = true
         yAxis.textColor = Color.BLACK
         yAxis.setDrawGridLines(false)
+
+        val lgnd = chart.legend
+        lgnd.textSize = 16.0f
 
         val rAxis : YAxis = chart.axisRight
         rAxis.isEnabled = false
@@ -578,7 +610,8 @@ class MainActivity : AppCompatActivity() {
             }
             GLUCOSE_FILTERED_CHANNEL -> {
                 set = LineDataSet(null, "Glucose level")
-                set.color = R.color.glucose_lineColor
+                set.color = Color.rgb(0xF0, 0x5B, 0x53)
+//                set.color = R.color.glucose_lineColor
             }
         }
         set!!.lineWidth = 3f
@@ -594,13 +627,16 @@ class MainActivity : AppCompatActivity() {
     companion object {
         private const val PERMISSION_CAMERA = 1000
         private const val RC_CROP_IMAGE = 1001
+
         private const val REQUEST_CAMERA = 2000
+
         private const val HISTOGRAM_BLUE_CHANNEL = 0
         private const val HISTOGRAM_GREEN_CHANNEL = 1
-        private const val GLUCOSE_RAW_CHANNEL = 1
-        private const val GLUCOSE_FILTERED_CHANNEL = 0
 
-        private const val THRESHOLD = 0.35
+        private const val GLUCOSE_FILTERED_CHANNEL = 0
+        private const val GLUCOSE_RAW_CHANNEL = 1
+
+        private const val FLUORESCENCE_THRESHOLD = 0.35
         private const val GLUCOSE_HIGH_SEEKBAR = 2
         private const val GLUCOSE_MODERATE_SEEKBAR = 1
         private const val GLUCOSE_LOW_SEEKBAR = 0

@@ -74,7 +74,7 @@
         app:layout_constraintEnd_toEndOf="@id/glucoseTextView"
         android:layout_marginStart="10dp"
         android:layout_marginTop="10dp"
-        android:textSize="12sp"
+        android:textSize="16sp"
         android:fontFamily="@font/godo_b"
         android:textColor="@color/black"/>
 
@@ -192,7 +192,7 @@
     <com.github.mikephil.charting.charts.LineChart
         android:id="@+id/glucoseChart"
         android:layout_width="match_parent"
-        android:layout_height="340dp"
+        android:layout_height="400dp"
         android:layout_marginStart="10dp"
         android:layout_marginEnd="10dp"
         android:background="@drawable/chartbackground"
